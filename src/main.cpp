@@ -74,7 +74,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		return CCTextInputNode::onTextFieldAttachWithIME(tField);
 	}
 
-    bool onTextFieldDetachWithIME(cocos2d::CCTextFieldTTF* tField)
+	bool onTextFieldDetachWithIME(cocos2d::CCTextFieldTTF* tField)
 	{
 		g_selectedInput = nullptr;
 
@@ -162,7 +162,14 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			m_fields->m_is_adding_to_highlight = false;
 
 			if (m_fields->m_highlighted.isHighlighting())
-				highlightFromToPos(m_fields->m_highlighted.getFromPos(), m_fields->m_pos);
+				highlightFromToPos(
+					currentPos == m_fields->m_highlighted.getFromPos()
+						? m_fields->m_pos
+						: m_fields->m_highlighted.getFromPos(),
+					currentPos == m_fields->m_highlighted.getFromPos()
+						? m_fields->m_highlighted.getToPos()
+						: m_fields->m_pos
+					);
 			else
 				highlightFromToPos(currentPos, m_fields->m_pos);
 
@@ -179,7 +186,6 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			m_fields->m_is_adding_to_highlight = false;
 
-			// i wanna fucking kms
 			if (m_fields->m_highlighted.isHighlighting())
 				highlightFromToPos(
 					currentPos == m_fields->m_highlighted.getFromPos()
@@ -235,8 +241,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			if (m_fields->m_highlighted.isHighlighting())
 				highlightFromToPos(
-					m_fields->m_pos,
-					m_fields->m_highlighted.getToPos() == m_fields->m_string.size() ? -1 : m_fields->m_highlighted.getToPos()
+					currentPos == m_fields->m_highlighted.getToPos()
+						? m_fields->m_pos
+						: m_fields->m_highlighted.getToPos(),
+					currentPos == m_fields->m_highlighted.getToPos()
+						? m_fields->m_highlighted.getFromPos()
+						: m_fields->m_pos
 				);
 			else
 				highlightFromToPos(m_fields->m_pos, currentPos);
@@ -254,9 +264,20 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			m_fields->m_is_adding_to_highlight = false;
 
-			// i WILL kms
 			if (m_fields->m_highlighted.isHighlighting())
-				highlightFromToPos(m_fields->m_highlighted.getToPos(), m_fields->m_pos);
+			{
+				if (currentPos == -1)
+					return highlightFromToPos(m_fields->m_highlighted.getFromPos(), m_fields->m_pos);
+
+				highlightFromToPos(
+					currentPos == m_fields->m_highlighted.getToPos()
+						? m_fields->m_pos
+						: m_fields->m_highlighted.getToPos(),
+					currentPos == m_fields->m_highlighted.getToPos()
+						? m_fields->m_highlighted.getFromPos()
+						: m_fields->m_pos
+				);
+			}
 			else
 				highlightFromToPos(m_fields->m_pos, currentPos);
 
@@ -291,15 +312,18 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	void onPaste()
 	{
 		const std::string& clipboardText = clipboard::read();
-		int pos = m_fields->m_pos;
+		const int pos = m_fields->m_pos == -1 ? m_fields->m_string.size() : m_fields->m_pos;
 
-		if (pos == -1)
-			pos = m_fields->m_string.size();
+		log::debug("from: {} len: {} text: \"{}\"", m_fields->m_highlighted.getFromPos(), m_fields->m_highlighted.getLength(), clipboardText);
 
-		m_fields->m_string = BI::utils::insertStrAtIndex(m_fields->m_string, pos, clipboardText);
+		if (m_fields->m_highlighted.isHighlighting())
+			insertStringAtPos(m_fields->m_highlighted.getFromPos(), m_fields->m_highlighted.getLength(), clipboardText);
+		else
+		{
+			setAndUpdateString(BI::utils::insertStrAtIndex(m_fields->m_string, m_fields->m_pos, clipboardText));
 
-		setAndUpdateString(m_fields->m_string);
-		updateBlinkLabelToCharForced(m_fields->m_pos == -1 ? -1 : pos + clipboardText.size());
+			updateBlinkLabelToCharForced(pos + clipboardText.size() == m_fields->m_string.size() ? -1 : pos + clipboardText.size());
+		}
 	}
 
 	void onCut()
@@ -308,9 +332,11 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		clipboard::write(m_fields->m_highlighted.str.data());
 
-		clearHighlight();
-		setAndUpdateString("");
-		updateBlinkLabelToChar(-1);
+		insertStringAtPos(
+			m_fields->m_highlighted.getFromPos(),
+			m_fields->m_highlighted.getLength(),
+			""
+		);
 
 		if (m_fields->m_string.empty())
 			showTextOrPlaceholder(false);
@@ -334,20 +360,21 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 
 	// rewritten input stuff and highlighting
-	void highlightFromToPos(int from, int to, bool isRTL = false)
+	/**
+	 * @brief Highlights from `from` to `to` by setting the highlight's content width
+	 * 
+	 * @param from
+	 * @param to
+	 */
+	void highlightFromToPos(int from, int to)
 	{
 		if (m_fields->m_string.empty()) return;
 
 		if ((from == -1 ? m_fields->m_string.size() : from) > (to == -1 ? m_fields->m_string.size() : to))
 			std::swap(from, to);
 
-		from = from == m_fields->m_string.size() ? -1 : from;
-		to = to == m_fields->m_string.size() ? -1 : to;
-
 		if (from == to)
 			return clearHighlight();
-
-		log::debug("highlighting from {} to {}", from, to);
 
 		if (this->m_placeholderLabel)
 			m_fields->m_highlight->setScaleY(
@@ -360,7 +387,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		CCPoint startPos = getCharNodeSpacePos(0, false);
 
-		m_fields->m_highlighted = { m_fields->m_string, from, to };
+		m_fields->m_highlighted.update(m_fields->m_string, { from, to });
 
 		m_fields->m_highlight->setPositionX(getCharNodeSpacePos(from, true).x - 1.f);
 		m_fields->m_highlight->setContentWidth(
@@ -371,6 +398,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		m_fields->m_highlight->setVisible(true);
 	}
 
+	/**
+	 * @brief Inserts `char` at `pos`
+	 * 
+	 * @param pos
+	 * @param character
+	 */
 	void insertCharAtPos(int pos, char character)
 	{
 		if (
@@ -380,45 +413,80 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			) return;
 
 		if (m_fields->m_highlighted.isHighlighting())
-		{
-			clearHighlight();
-			setAndUpdateString("");
-			updateBlinkLabelToCharForced(-1);
-		}
+			insertStringAtPos(
+				m_fields->m_highlighted.getFromPos(),
+				m_fields->m_highlighted.getLength(),
+				""
+			);
 
-		// log::debug("inserting '{}' at pos {} in str \"{}\"", character, pos, m_fields->m_string);
-		m_fields->m_string = BI::utils::insertCharAtIndex(m_fields->m_string, pos, character);
-		// log::debug("becoming \"{}\"", m_fields->m_string);
-
-		setAndUpdateString(m_fields->m_string);
+		setAndUpdateString(
+			BI::utils::insertCharAtIndex(m_fields->m_string, pos, character)
+		);
 
 		this->updateBlinkLabelToChar(getAndSetNextPos());
 	}
 
+	/**
+	 * @brief Inserts `str` at `pos` replacing `len` characters
+	 * 
+	 * @param pos
+	 * @param len
+	 * @param str
+	 */
+	void insertStringAtPos(int pos, std::size_t len, const std::string_view str)
+	{
+		log::debug("before inputting str: {}", m_fields->m_string);
+		m_fields->m_string.replace(pos, len, str);
+		log::debug("after inputting str: {}", m_fields->m_string);
+
+		setAndUpdateString(m_fields->m_string);
+
+		updateBlinkLabelToCharForced(
+			(m_fields->m_highlighted.getFromPos() + str.length()) == m_fields->m_string.length()
+				? -1
+				: m_fields->m_highlighted.getFromPos() + str.length()
+		);
+	}
+
+	/**
+	 * @brief Deletes `pos`
+	 * 
+	 * @param pos
+	 * @param isDel is the del key responsible for this delete event
+	 */
 	void deletePos(int pos, bool isDel)
 	{
 		if (
-			m_fields->m_string.empty() ||
-			(m_fields->m_string.empty() && pos == 0) ||
-			(isDel && pos == -1) ||
-			(!isDel && pos == 0)
+			!m_fields->m_highlighted.isHighlighting() &&
+			(
+				m_fields->m_string.empty() ||
+				(isDel && pos == -1) ||
+				(!isDel && pos == 0)
+			)
 		) return;
 
 		if (m_fields->m_highlighted.isHighlighting())
 		{
-			clearHighlight();
-			setAndUpdateString("");
-			updateBlinkLabelToCharForced(-1);
-			showTextOrPlaceholder(false);
+			insertStringAtPos(
+				m_fields->m_highlighted.getFromPos(),
+				m_fields->m_highlighted.getLength(),
+				""
+			);
 
-			if (this->m_textArea)
-				this->m_cursor->setPosition(m_fields->m_text_area_initial_cursor_pos);
+			if (m_fields->m_string.empty())
+			{
+				updateBlinkLabelToCharForced(-1);
+				showTextOrPlaceholder(false);
+
+				if (this->m_textArea)
+					this->m_cursor->setPosition(m_fields->m_text_area_initial_cursor_pos);
+			}
 
 			return;
 		}
 
 		if (pos == -1)
-			pos = m_fields->m_string.size();
+			pos = m_fields->m_string.length();
 
 		if (isDel)
 			pos++;
@@ -429,9 +497,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		// log::debug("pos was {}", m_fields->m_pos);
 		if (isDel)
-			updateBlinkLabelToCharForced(m_fields->m_pos == m_fields->m_string.size() ? -1 : m_fields->m_pos);
+			updateBlinkLabelToCharForced(m_fields->m_pos == m_fields->m_string.length() ? -1 : m_fields->m_pos);
 		else
-			updateBlinkLabelToCharForced(pos - 1 == m_fields->m_string.size() ? -1 : pos - 1);
+			updateBlinkLabelToCharForced(pos - 1 == m_fields->m_string.length() ? -1 : pos - 1);
 		// log::debug("pos is now {}", m_fields->m_pos);
 
 		if (m_fields->m_string.empty())
@@ -465,7 +533,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	CCPoint getCharNodeSpacePos(unsigned int pos, bool isLeftAnchored)
 	{
 		if (pos == -1)
-			pos = m_fields->m_string.size();
+			pos = m_fields->m_string.length();
 
 		if (this->m_placeholderLabel)
 		{
@@ -495,7 +563,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			for (auto* label : textAreaLabels)
 			{
-				std::size_t labelStringSize = std::string_view(label->getString()).size();
+				std::size_t labelStringSize = std::string_view(label->getString()).length();
 
 				if (labelStringSize >= pos)
 				{
@@ -508,21 +576,28 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			auto targetLabelLetters = CCArrayExt<CCNode*>(targetLabel->getChildren());
 
+			// TODO: update
 			return this->convertToNodeSpace(
 				targetLabel->convertToWorldSpace(targetLabelLetters[pos]->getPosition())
 			) - 5.f;
 		}
 	}
 
-	int getAndSetNextPos()
+	/**
+	 * @brief Gets and sets the next cursor postion
+	 * To be used when calling updateBlinkLabelToChar
+	 * 
+	 * @return int 
+	 */
+	[[nodiscard]] int getAndSetNextPos()
 	{
 		if (const auto& str = m_fields->m_string; !str.empty())
 		{
 			if (m_fields->m_pos != -1)
 			{
-				if (m_fields->m_pos + 1 == str.size())
+				if (m_fields->m_pos + 1 == str.length())
 					m_fields->m_pos = -1;
-				else if (m_fields->m_pos < str.size())
+				else if (m_fields->m_pos < str.length())
 					m_fields->m_pos++;
 			}
 		}
@@ -532,14 +607,20 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		return m_fields->m_pos;
 	}
 
-	int getAndSetPreviousPos()
+	/**
+	 * @brief Gets and sets the previous cursor postion
+	 * To be used when calling updateBlinkLabelToChar
+	 * 
+	 * @return int 
+	 */
+	[[nodiscard]] int getAndSetPreviousPos()
 	{
 		if (const auto& str = m_fields->m_string; !str.empty())
 		{
 			if (m_fields->m_pos != 0)
 			{
 				if (m_fields->m_pos == -1)
-					m_fields->m_pos = str.size() - 1;
+					m_fields->m_pos = str.length() - 1;
 				else
 					m_fields->m_pos--;
 			}

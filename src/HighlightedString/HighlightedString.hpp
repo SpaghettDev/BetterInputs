@@ -7,7 +7,7 @@
 
 struct HighlightedString
 {
-	HighlightedString(std::string_view str, int from, int to)
+	HighlightedString(std::string_view str, int from = -2, int to = -2)
 		: m_from(from == -1 ? str.size() : from),
 			m_to(to == -1 ? str.size() : to),
 			m_og_str(str)
@@ -35,21 +35,21 @@ struct HighlightedString
 			update_string_substr();
 	}
 
-	void update(std::pair<std::size_t, std::size_t> pos)
+	void update(std::string_view str, std::pair<std::size_t, std::size_t> pos)
 	{
 		m_from = pos.first == -1 ? str.size() : pos.first;
 		m_to = pos.second == -1 ? str.size() : pos.second;
 
+		m_og_str = str;
+
 		update_string_substr();
 	}
 
-	bool isHighlighting() const
-	{
-		return !str.empty();
-	}
+	inline bool isHighlighting() const { return !str.empty(); }
 
-	int getFromPos() const { return m_from; }
-	int getToPos() const { return m_to; }
+	inline int getFromPos() const { return m_from == m_og_str.size() ? -1 : m_from; }
+	inline int getToPos() const { return m_to == m_og_str.size() ? -1 : m_to; }
+	inline int getLength() const { return str.size(); }
 
 public:
 	std::string_view str;

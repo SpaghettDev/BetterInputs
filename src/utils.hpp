@@ -49,6 +49,7 @@ namespace BI
 			return newStr;
 		}
 
+
 		inline int findNextSeparator(std::string_view str, int pos)
 		{
 			if (pos == -1)
