@@ -130,7 +130,7 @@ namespace BI
 		template<typename T>
 		T get(std::string_view value)
 		{
-			return ::geode::Mod::get()->getSettingValue<bool>(value);
+			return ::geode::Mod::get()->getSettingValue<T>(value);
 		}
 	}
 }
