@@ -1,0 +1,19 @@
+{
+	"geode": "2.0.0-beta.26",
+	"gd": {
+		"win": "2.204"
+	},
+	"version": "v1.0.0",
+	"id": "spaghettdev.betterinputs",
+	"name": "BetterInputs",
+	"developer": "SpaghettDev",
+	"description": "Makes inputs behave like on Windows (text highlighting, Ctrl+A, Ctrl+Arrow hotkeys, etc...)",
+	"settings": {
+		"allow-any-character": {
+			"type": "bool",
+			"default": true,
+			"name": "Allow any character",
+			"description": "Allows inputting any character (even ones not allowed) into input nodes. (this is ignored if you have a mod menu that already has this enabled)"
+		}
+	}
+}
