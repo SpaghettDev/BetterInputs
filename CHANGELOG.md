@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - TextArea selection
 
-## [1.1.0] - 2024-05-26
+## [1.2.0] - 2024-05-26
 
 ### Fixed
 
