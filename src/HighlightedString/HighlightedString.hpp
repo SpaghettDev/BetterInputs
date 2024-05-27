@@ -3,8 +3,6 @@
 #include <string_view>
 #include <utility>
 
-#include <Geode/Geode.hpp>
-
 struct HighlightedString
 {
 	constexpr HighlightedString(std::string_view str, int from = -2, int to = -2)
