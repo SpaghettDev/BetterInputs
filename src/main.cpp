@@ -314,10 +314,8 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		const std::string& clipboardText = clipboard::read();
 		const int pos = m_fields->m_pos == -1 ? m_fields->m_string.size() : m_fields->m_pos;
 
-		log::debug("from: {} len: {} text: \"{}\"", m_fields->m_highlighted.getFromPos(), m_fields->m_highlighted.getLength(), clipboardText);
-
 		if (m_fields->m_highlighted.isHighlighting())
-			insertStringAtPos(m_fields->m_highlighted.getFromPos(), m_fields->m_highlighted.getLength(), clipboardText);
+			insertStrAtPos(m_fields->m_highlighted.getFromPos(), m_fields->m_highlighted.getLength(), clipboardText);
 		else
 		{
 			setAndUpdateString(BI::utils::insertStrAtIndex(m_fields->m_string, m_fields->m_pos, clipboardText));
@@ -332,7 +330,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		clipboard::write(m_fields->m_highlighted.str.data());
 
-		insertStringAtPos(
+		insertStrAtPos(
 			m_fields->m_highlighted.getFromPos(),
 			m_fields->m_highlighted.getLength(),
 			""
@@ -413,7 +411,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			) return;
 
 		if (m_fields->m_highlighted.isHighlighting())
-			insertStringAtPos(
+			insertStrAtPos(
 				m_fields->m_highlighted.getFromPos(),
 				m_fields->m_highlighted.getLength(),
 				""
@@ -433,19 +431,15 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 * @param len
 	 * @param str
 	 */
-	void insertStringAtPos(int pos, std::size_t len, const std::string_view str)
+	void insertStrAtPos(int pos, std::size_t len, const std::string& str)
 	{
-		log::debug("before inputting str: {}", m_fields->m_string);
-		m_fields->m_string.replace(pos, len, str);
-		log::debug("after inputting str: {}", m_fields->m_string);
+		const std::size_t endPos = m_fields->m_highlighted.getFromPos() + str.length();
+
+		m_fields->m_string.replace(pos, len, str.data());
 
 		setAndUpdateString(m_fields->m_string);
 
-		updateBlinkLabelToCharForced(
-			(m_fields->m_highlighted.getFromPos() + str.length()) == m_fields->m_string.length()
-				? -1
-				: m_fields->m_highlighted.getFromPos() + str.length()
-		);
+		updateBlinkLabelToCharForced(endPos == m_fields->m_string.length() ? -1 : endPos);
 	}
 
 	/**
@@ -467,7 +461,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		if (m_fields->m_highlighted.isHighlighting())
 		{
-			insertStringAtPos(
+			insertStrAtPos(
 				m_fields->m_highlighted.getFromPos(),
 				m_fields->m_highlighted.getLength(),
 				""

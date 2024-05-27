@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- Text selection bugs
+
+## [1.1.0] - 2024-05-256
+
+### Fixed
+
 - Text selection and copy/paste shortcuts
 
 ## [1.0.1] - 2024-05-26
