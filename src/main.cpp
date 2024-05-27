@@ -432,7 +432,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			{
 				std::size_t highlightIdx = 0;
-				std::size_t targetFrom = from;
+				std::size_t targetFrom = from - 1;
 				std::size_t targetTo = to;
 
 				for (auto* label : textAreaLabels)
@@ -471,7 +471,10 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 							highlightNode->setVisible(true);
 						}
 					}
-					else
+					else if (
+						!m_fields->m_highlighted.isHighlighting() ||
+						(m_fields->m_highlighted.isHighlighting() && m_fields->m_pos > labelStrLen)
+					)
 						highlightNode->setVisible(false);
 
 					targetFrom -= labelStrLen;
@@ -571,16 +574,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		if (isDel)
 			pos++;
 
-		// log::debug("deleting pos {} in str \"{}\"", pos, m_fields->m_string);
 		setAndUpdateString(m_fields->m_string.erase(pos - 1, 1));
-		// log::debug("becoming \"{}\"", m_fields->m_string);
 
-		// log::debug("pos was {}", m_fields->m_pos);
 		if (isDel)
 			updateBlinkLabelToCharForced(m_fields->m_pos == m_fields->m_string.length() ? -1 : m_fields->m_pos);
 		else
 			updateBlinkLabelToCharForced(pos - 1 == m_fields->m_string.length() ? -1 : pos - 1);
-		// log::debug("pos is now {}", m_fields->m_pos);
 
 		if (m_fields->m_string.empty())
 		{
@@ -810,7 +809,7 @@ struct BetterCCIMEDispatcher : Modify<BetterCCIMEDispatcher, CCIMEDispatcher>
 };
 
 // handles ctrl and shift
-// also handles mouse clicks
+// also fixes mouse clicks
 struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 {
 	void onGLFWKeyCallback(
@@ -823,8 +822,6 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 	) {
 		if (!g_selectedInput)
 			return CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
-
-		// log::debug("key: {}", key);
 
 		if (action != 0)
 		{
@@ -895,6 +892,7 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 
 	// for some odd reason, the cursor's position isnt updated until the 2nd click
 	// this fixes it :D
+	// TODO: fix this fix not working with TextAreas
 	void onGLFWMouseCallBack(GLFWwindow* window, int button, int action, int mods)
 	{
 		CCEGLView::onGLFWMouseCallBack(window, button, action, mods);
@@ -908,9 +906,6 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 		// CCTouch's mouse origin is top left (because of course it is)
 		CCTouch touch{};
 		touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
-
-		// log::debug("mouse pos: {}", mousePos);
-		// log::debug("touch pos: {}", CCPoint{ mousePos.x, winSize.height - mousePos.y });
 
 		g_selectedInput->useUpdateBlinkPos(true);
 
