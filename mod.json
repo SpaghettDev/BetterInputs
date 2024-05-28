@@ -3,7 +3,7 @@
     "gd": {
         "win": "2.204"
     },
-    "version": "v1.3.1",
+    "version": "v1.3.2",
     "id": "spaghettdev.betterinputs",
     "name": "BetterInputs",
     "developer": "SpaghettDev",
@@ -13,7 +13,7 @@
             "type": "bool",
             "default": true,
             "name": "Allow any character",
-            "description": "Allows inputting any character (even ones not allowed) into input nodes. (this is ignored if you have a mod menu that already has this enabled)"
+            "description": "Allows inputting any character (even ones not allowed) into input nodes. <cr>This is ignored if you have a mod menu that already has this enabled!</c>"
         }
     }
 }

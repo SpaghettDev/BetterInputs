@@ -733,7 +733,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			}
 		}
 		else
-			m_fields->m_pos = 0;
+			m_fields->m_pos = -1;
 
 		return m_fields->m_pos;
 	}
@@ -757,7 +757,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			}
 		}
 		else
-			m_fields->m_pos = 0;
+			m_fields->m_pos = -1;
 
 		return m_fields->m_pos;
 	}
