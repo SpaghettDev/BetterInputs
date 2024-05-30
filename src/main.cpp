@@ -34,13 +34,13 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		bool m_use_update_blink_pos = false;
 		bool m_get_text_field_str = false;
 
-
-		// i dont think this ever changes
-		const CCPoint m_text_area_initial_cursor_pos = { .0f, -9.f };
+		std::string m_placeholder;
 	};
 
 	bool init(float p0, float p1, char const* p2, char const* p3, int p4, char const* p5)
 	{
+		m_fields->m_placeholder = p2;
+
 		if (!CCTextInputNode::init(p0, p1, p2, p3, p4, p5)) return false;
 
 		appendHighlightNode();
@@ -77,10 +77,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		showTextOrPlaceholder(true);
 
 		if (m_fields->m_use_update_blink_pos)
-		{
 			m_fields->m_pos = pos;
-			m_fields->m_use_update_blink_pos = false;
-		}
 
 		CCTextInputNode::updateBlinkLabelToChar(m_fields->m_pos);
 
@@ -96,7 +93,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		const int prevPos = m_fields->m_pos;
 		m_fields->m_string = str;
 
-		CCTextInputNode::setString(str);
+		this->setString(str);
 
 		m_fields->m_pos = prevPos;
 	}
@@ -120,6 +117,13 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 	void deselectInput()
 	{
+		if (this->m_placeholderLabel)
+			this->m_placeholderLabel->setString(m_fields->m_placeholder.c_str());
+		else
+			this->m_textArea->setString(m_fields->m_placeholder.c_str());
+
+		showTextOrPlaceholder(true);
+
 		this->onClickTrackNode(false);
 		this->m_cursor->setVisible(false);
 	}
@@ -329,7 +333,14 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		);
 
 		if (m_fields->m_string.empty())
+		{
+			if (this->m_placeholderLabel)
+				this->m_placeholderLabel->setString("");
+			else
+				this->m_textArea->setString("");
+			updateBlinkLabelToCharForced(-1);
 			showTextOrPlaceholder(false);
+		}
 	}
 
 
@@ -350,6 +361,8 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 
 	// rewritten input stuff and highlighting
+	// TODO: fix TextArea selection being off by one when going to the previous/next line
+	// TODO: fix TextArea multi-line selection not selecting more than 2 lines
 	/**
 	 * @brief Highlights from `from` to `to` by setting the highlight's content width
 	 * 
@@ -432,7 +445,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			{
 				std::size_t highlightIdx = 0;
-				std::size_t targetFrom = from - 1;
+				std::size_t targetFrom = from - 1; // ???
 				std::size_t targetTo = to;
 
 				for (auto* label : textAreaLabels)
@@ -558,11 +571,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			if (m_fields->m_string.empty())
 			{
+				if (this->m_placeholderLabel)
+					this->m_placeholderLabel->setString("");
+				else
+					this->m_textArea->setString("");
 				updateBlinkLabelToCharForced(-1);
 				showTextOrPlaceholder(false);
-
-				if (this->m_textArea)
-					this->m_cursor->setPosition(m_fields->m_text_area_initial_cursor_pos);
 			}
 
 			return;
@@ -579,13 +593,15 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		if (isDel)
 			updateBlinkLabelToCharForced(m_fields->m_pos == m_fields->m_string.length() ? -1 : m_fields->m_pos);
 		else
-			updateBlinkLabelToCharForced(pos - 1 == m_fields->m_string.length() ? -1 : pos - 1);
+			updateBlinkLabelToCharForced(pos == m_fields->m_string.length() ? -1 : pos - 1);
 
 		if (m_fields->m_string.empty())
 		{
-			if (this->m_textArea)
-				this->m_cursor->setPosition(m_fields->m_text_area_initial_cursor_pos);
-
+			if (this->m_placeholderLabel)
+				this->m_placeholderLabel->setString("");
+			else
+				this->m_textArea->setString("");
+			updateBlinkLabelToCharForced(-1);
 			showTextOrPlaceholder(false);
 		}
 	}
@@ -892,7 +908,6 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 
 	// for some odd reason, the cursor's position isnt updated until the 2nd click
 	// this fixes it :D
-	// TODO: fix this fix not working with TextAreas
 	void onGLFWMouseCallBack(GLFWwindow* window, int button, int action, int mods)
 	{
 		CCEGLView::onGLFWMouseCallBack(window, button, action, mods);
@@ -911,5 +926,7 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 
 		// 🥰
 		g_selectedInput->ccTouchBegan(&touch, nullptr);
+
+		g_selectedInput->useUpdateBlinkPos(false);
 	}
 };

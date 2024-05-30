@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.4.0] - 2024-05-30
+
+### Fixed
+
+- Cursor position funkiness in TextAreas and regular CCTextInputNodes, again
+- Cursor position not getting set when using mouse in TextAreas
+
 ## [1.3.2] - 2024-05-28
 
 ### Fixed
