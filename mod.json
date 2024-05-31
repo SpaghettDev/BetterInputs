@@ -3,11 +3,20 @@
     "gd": {
         "win": "2.204"
     },
-    "version": "v2.0.0",
+    "version": "v2.0.0-beta",
     "id": "spaghettdev.betterinputs",
     "name": "BetterInputs",
     "developer": "SpaghettDev",
     "description": "Makes inputs behave like on Windows (text highlighting, Ctrl+A, Ctrl+Arrow hotkeys, etc...)",
+    "repository": "https://github.com/SpaghettDev/BetterInputs",
+	"links": {
+		"community": "https://discord.gg/3bShQb6Jz3",
+		"source": "https://github.com/SpaghettDev/BetterInputs"
+	},
+	"issues": {
+		"info": "Report any bugs/suggestions here.",
+		"url": "https://github.com/SpaghettDev/BetterInputs/issues"
+	},
     "settings": {
         "allow-any-character": {
             "type": "bool",
