@@ -361,8 +361,6 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 
 	// rewritten input stuff and highlighting
-	// TODO: fix TextArea selection being off by one when going to the previous/next line
-	// TODO: fix TextArea multi-line selection not selecting more than 2 lines
 	/**
 	 * @brief Highlights from `from` to `to` by setting the highlight's content width
 	 * 
@@ -373,13 +371,13 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	{
 		if (m_fields->m_string.empty()) return;
 
-		if (from > (to == -1 ? m_fields->m_string.size() : to))
+		const CCPoint startPos = getCharNodeSpacePos(0, false);
+
+		if ((from == -1 ? m_fields->m_string.size() : from) > (to == -1 ? m_fields->m_string.size() : to))
 			std::swap(from, to);
 
 		if (from == to)
 			return clearHighlight();
-
-		CCPoint startPos = getCharNodeSpacePos(0, false);
 
 		m_fields->m_highlighted.update(m_fields->m_string, { from, to });
 
@@ -401,7 +399,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			auto textAreaLabels = CCArrayExt<CCLabelBMFont*>(this->m_textArea->m_label->getChildren());
 
 			std::size_t talSize = textAreaLabels.size();
-			std::size_t highlightsSize = m_fields->m_highlights.size() ;
+			std::size_t highlightsSize = m_fields->m_highlights.size();
 
 			if (talSize != highlightsSize)
 			{
@@ -413,86 +411,96 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 						removeLastHighlightNode();
 			}
 
-			if (from == 0 && to == -1)
+			// beware! very freaky code below
 			{
-				std::size_t highlightIdx = 0;
+				std::size_t line = 0;
+				std::size_t targetFrom = from;
+				std::size_t targetTo = (to == -1 ? m_fields->m_string.length() - 1 : to);
+
+				bool hasHighlightedStart = false;
+				bool hasHighlightedEnd = false;
 
 				for (auto* label : textAreaLabels)
 				{
 					const std::size_t labelStrLen = std::string_view(label->getString()).length() - 1;
-					const auto& highlightNode = m_fields->m_highlights[highlightIdx];
-					const auto& fromLetterPos = getCharNodeSpacePosAtLine(0, highlightIdx, true);
+					const auto& highlightSprite = m_fields->m_highlights[line];
 
-					highlightNode->setPosition({
-						fromLetterPos.x,
-						highlightNode->getPositionY() < fromLetterPos.y ? fromLetterPos.y : highlightNode->getPositionY()
-					});
-					highlightNode->setContentWidth(
-						std::abs(
-							highlightNode->getPositionX() - getCharNodeSpacePosAtLine(labelStrLen, highlightIdx, false).x
-						)
+					// label is anchored to bottom left :D
+					highlightSprite->setPositionY(
+						this->convertToNodeSpace(this->m_textArea->m_label->convertToWorldSpace(label->getPosition())).y +
+						(label->getContentHeight() / 2)
 					);
-					highlightNode->setScaleY(
-						2.5f * this->m_textArea->getScale()
-					);
-					highlightNode->setVisible(true);
+					highlightSprite->setScaleY(2.3f * this->m_textArea->getScale());
 
-					highlightIdx++;
-				}
-
-				return;
-			}
-
-			{
-				std::size_t highlightIdx = 0;
-				std::size_t targetFrom = from - 1; // ???
-				std::size_t targetTo = to;
-
-				for (auto* label : textAreaLabels)
-				{
-					const std::size_t labelStrLen = std::string_view(label->getString()).length() - 1;
-					const auto& highlightNode = m_fields->m_highlights[highlightIdx];
-
-					if (targetFrom <= labelStrLen)
+					if (hasHighlightedStart && hasHighlightedEnd)
 					{
-						const auto& fromLetterPos = getCharNodeSpacePosAtLine(targetFrom, highlightIdx, true);
+						highlightSprite->setVisible(false);
+						continue;
+					}
 
-						highlightNode->setPosition({
-							fromLetterPos.x,
-							highlightNode->getPositionY() < fromLetterPos.y ? fromLetterPos.y : highlightNode->getPositionY()
-						});
-						highlightNode->setScaleY(
-							2.3f * this->m_textArea->getScale()
-						);
+					if (!hasHighlightedStart)
+					{
+						if (targetFrom <= labelStrLen)
+						{
+							hasHighlightedStart = true;
+
+							highlightSprite->setPositionX(getCharNodeSpacePosAtLine(targetFrom, line, true).x);
+
+							// in case we're highlighting from and to the same label
+							if (targetTo > labelStrLen || targetTo == labelStrLen + 1)
+							{
+								highlightSprite->setContentWidth(
+									std::abs(
+										highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(labelStrLen, line, targetTo != labelStrLen + 1).x
+									)
+								);
+								highlightSprite->setVisible(true);
+
+								if (targetTo == labelStrLen + 1)
+									hasHighlightedEnd = true;
+							}
+							else
+							{
+								highlightSprite->setContentWidth(
+									std::abs(
+										highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(targetTo, line, to != -1).x
+									)
+								);
+								highlightSprite->setVisible(true);
+
+								hasHighlightedEnd = true;
+							}
+						}
+					}
+					else if (!hasHighlightedEnd)
+					{
+						highlightSprite->setPositionX(getCharNodeSpacePosAtLine(0, line, true).x);
 
 						if (targetTo > labelStrLen)
 						{
-							highlightNode->setContentWidth(
+							highlightSprite->setContentWidth(
 								std::abs(
-									highlightNode->getPositionX() - getCharNodeSpacePosAtLine(labelStrLen, highlightIdx, false).x
+									highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(labelStrLen, line, to != -1).x
 								)
 							);
-							highlightNode->setVisible(true);
+							highlightSprite->setVisible(true);
 						}
 						else
 						{
-							highlightNode->setContentWidth(
+							highlightSprite->setContentWidth(
 								std::abs(
-									highlightNode->getPositionX() - getCharNodeSpacePosAtLine(targetTo, highlightIdx, false).x
+									highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(targetTo, line, to != -1).x
 								)
 							);
-							highlightNode->setVisible(true);
+							highlightSprite->setVisible(true);
+
+							hasHighlightedEnd = true;
 						}
 					}
-					else if (
-						!m_fields->m_highlighted.isHighlighting() ||
-						(m_fields->m_highlighted.isHighlighting() && m_fields->m_pos > labelStrLen)
-					)
-						highlightNode->setVisible(false);
 
-					targetFrom -= labelStrLen;
-					targetTo -= labelStrLen;
-					highlightIdx++;
+					targetFrom -= labelStrLen + 1;
+					targetTo -= labelStrLen + 1;
+					line++;
 				}
 			}
 		}
@@ -593,7 +601,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		if (isDel)
 			updateBlinkLabelToCharForced(m_fields->m_pos == m_fields->m_string.length() ? -1 : m_fields->m_pos);
 		else
-			updateBlinkLabelToCharForced(pos == m_fields->m_string.length() ? -1 : pos - 1);
+			updateBlinkLabelToCharForced(pos - 1 == m_fields->m_string.length() ? -1 : pos - 1);
 
 		if (m_fields->m_string.empty())
 		{
@@ -663,8 +671,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 				pos -= labelStringSize;
 			}
 
-			auto targetLabelLetters = CCArrayExt<CCNode*>(targetLabel->getChildren());
-			auto charNode = targetLabelLetters[pos];
+			auto charNode = static_cast<CCNode*>(targetLabel->getChildren()->objectAtIndex(pos));
 
 			CCPoint charNodeNodeSpacePos = this->convertToNodeSpace(
 				targetLabel->convertToWorldSpace(charNode->getPosition())
@@ -691,11 +698,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 */
 	CCPoint getCharNodeSpacePosAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored)
 	{
-		CCLabelBMFont* targetLabel = static_cast<CCLabelBMFont*>(
+		auto targetLabel = static_cast<CCLabelBMFont*>(
 			this->m_textArea->m_label->getChildren()->objectAtIndex(line)
 		);
-		auto targetLabelLetters = CCArrayExt<CCNode*>(targetLabel->getChildren());
-		auto charNode = targetLabelLetters[pos];
+		auto charNode = static_cast<CCNode*>(
+			targetLabel->getChildren()->objectAtIndex(pos)
+		);
 
 		CCPoint charNodeNodeSpacePos = this->convertToNodeSpace(
 			targetLabel->convertToWorldSpace(charNode->getPosition())
@@ -713,7 +721,11 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		auto highlight = cocos2d::extension::CCScale9Sprite::create("square.png");
 
 		highlight->setOpacity(120);
-		highlight->setPosition(this->m_cursor->getPosition() - 1.f);
+		highlight->setPosition(
+			this->m_placeholderLabel
+				? CCPoint{this->m_cursor->getPosition() - 1.f}
+				: CCPoint{ .0f, .0f }
+		);
 		highlight->setAnchorPoint({ .0f, .5f });
 		highlight->setVisible(false);
 		highlight->setID(std::format(GEODE_MOD_ID "/highlight-sprite-{}", m_fields->m_highlights.size() + 1));
