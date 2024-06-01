@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
-- `Auto deselect input` option, default is enabled. If on, deselects the selected input if an alert/layer is created.
+- `Auto deselect input` option, default is enabled. If on, and when ESC is clicked while an input is selected, closes the alert/layer that is in front of the input instead of deselecting the input.
 
 ### Fixed
 
