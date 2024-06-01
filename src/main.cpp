@@ -4,7 +4,9 @@
 #include <Geode/modify/CCTextInputNode.hpp>
 #include <Geode/modify/CCEGLView.hpp>
 #include <Geode/modify/CCIMEDispatcher.hpp>
+
 #include <Geode/modify/CCTextFieldTTF.hpp>
+#include <Geode/modify/CCScene.hpp>
 
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
@@ -21,8 +23,8 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 {
 	struct Fields
 	{
-		// the actual string, because we basically rework everything about the input
-		// text insertion is broken :D (getString() normally returns the last character or is empty)
+		// the actual string, because we basically rework everything about the input text insertion is broken :D
+		// (getString() normally returns the last character or is empty, we hook CCTextFieldTTF::getString to fix this)
 		std::string m_string = "";
 
 		// current cursor position
@@ -86,15 +88,20 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			clearHighlight();
 	}
 
+	void setString(gd::string str)
+	{
+		setAndUpdateString(str);
+	}
 
-	// rewritten stuff
+
+	// helpers
 	void setAndUpdateString(const std::string& str)
 	{
 		// the position is modified in the call to setString
 		const int prevPos = m_fields->m_pos;
 		m_fields->m_string = str;
 
-		this->setString(str);
+		CCTextInputNode::setString(str);
 
 		m_fields->m_pos = prevPos;
 	}
@@ -457,15 +464,13 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 								// fix space character being quirky and being positioned in the bottom left of the last character :D
 								if (m_fields->m_string[labelStrLen] == ' ')
 								{
-									const auto& lastCharNode = getCharNodePosInfoAtLine(labelStrLen - 1, line, false);
-									targetXPos = lastCharNode.position.x + (lastCharNode.widthFromCenter * 2);
+									const auto& secondToLastCharNode = getCharNodePosInfoAtLine(labelStrLen - 1, line, false);
+									targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
 								}
 								else
 									targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, true).position.x;
 
-								highlightSprite->setContentWidth(
-									std::abs(highlightSprite->getPositionX() - targetXPos)
-								);
+								highlightSprite->setContentWidth(std::abs(highlightSprite->getPositionX() - targetXPos));
 
 								if (targetTo == labelStrLen + 1)
 									hasHighlightedEnd = true;
@@ -714,7 +719,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 * @param pos
 	 * @param line
 	 * @param isLeftAnchored
-	 * @return CharNode 
+	 * @return CharNode
 	 */
 	CharNode getCharNodePosInfoAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored)
 	{
@@ -743,7 +748,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	/**
 	 * @brief Adds a highlight node to the parent CCTextInputNode
 	 * 
-	 * @return cocos2d::extension::CCScale9Sprite* 
+	 * @return cocos2d::extension::CCScale9Sprite*
 	 */
 	cocos2d::extension::CCScale9Sprite* appendHighlightNode()
 	{
@@ -778,7 +783,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 * @brief Gets and sets the next cursor postion
 	 * To be used when calling updateBlinkLabelToChar
 	 * 
-	 * @return int 
+	 * @return int
 	 */
 	[[nodiscard]] int getAndSetNextPos()
 	{
@@ -802,7 +807,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 * @brief Gets and sets the previous cursor postion
 	 * To be used when calling updateBlinkLabelToChar
 	 * 
-	 * @return int 
+	 * @return int
 	 */
 	[[nodiscard]] int getAndSetPreviousPos()
 	{
@@ -823,15 +828,65 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	}
 };
 
+// CCTextInputNode::getString is inlined, all it does is call CCTextFieldTTF::getString
 struct BetterCCTextFieldTTF : Modify<BetterCCTextFieldTTF, CCTextFieldTTF>
 {
-	// CCTextInputNode::getString is inlined, all it does is call CCTextFieldTTF::getString
 	const char* getString()
 	{
 		if (g_selectedInput && !g_selectedInput->m_fields->m_get_text_field_str)
 			return g_selectedInput->m_fields->m_string.c_str();
 
 		return CCTextFieldTTF::getString();
+	}
+};
+
+// fix layers appearing above selected CCTextInputNodes making ESC key deselect the
+// input node instead of closing the alert
+struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
+{
+	struct Fields
+	{
+		// its not like the input will change parents...
+		CCLayer* m_outermostInputParent = nullptr;
+	};
+
+	static CCScene* create()
+	{
+		auto ret = CCScene::create();
+
+		// inspired by what HappyTextures by Alphalaneous does
+		ret->schedule(schedule_selector(AlertLayerFix::onUpdateTick), .1f);
+
+		return ret;
+	}
+
+	void onUpdateTick(float)
+	{
+		if (
+			!g_selectedInput ||
+			!BI::geode::get<bool>("auto-deselect") ||
+			typeinfo_cast<geode::Notification*>(this->getChildren()->lastObject())
+		) {
+			m_fields->m_outermostInputParent = nullptr;
+			return;
+		}
+
+		if (!m_fields->m_outermostInputParent)
+		{
+			CCLayer* outermostInputParent = static_cast<CCLayer*>(g_selectedInput->getParent());
+			while (outermostInputParent->getParent() != this)
+				outermostInputParent = static_cast<CCLayer*>(outermostInputParent->getParent());
+
+			m_fields->m_outermostInputParent = outermostInputParent;
+		}
+
+		int highestZOrder = INT_MIN;
+		for (auto* layer : CCArrayExt<CCLayer*>(this->getChildren()))
+			if (layer != m_fields->m_outermostInputParent && layer->getZOrder() > highestZOrder)
+				highestZOrder = layer->getZOrder();
+
+		if (m_fields->m_outermostInputParent->getZOrder() < highestZOrder)
+			g_selectedInput->deselectInput();
 	}
 };
 
