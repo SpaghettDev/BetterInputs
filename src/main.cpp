@@ -8,7 +8,8 @@
 
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
-#include "HighlightedString/HighlightedString.hpp"
+#include "types/HighlightedString.hpp"
+#include "types/CharNode.hpp"
 #include "utils.hpp"
 
 using namespace geode::prelude;
@@ -371,7 +372,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	{
 		if (m_fields->m_string.empty()) return;
 
-		const CCPoint startPos = getCharNodeSpacePos(0, false);
+		const CCPoint startPos = getCharNodePosInfo(0, false);
 
 		if ((from == -1 ? m_fields->m_string.size() : from) > (to == -1 ? m_fields->m_string.size() : to))
 			std::swap(from, to);
@@ -383,10 +384,10 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		if (this->m_placeholderLabel)
 		{
-			m_fields->m_highlights[0]->setPositionX(getCharNodeSpacePos(from, true).x - 1.f);
+			m_fields->m_highlights[0]->setPositionX(getCharNodePosInfo(from, true).position.x - 1.f);
 			m_fields->m_highlights[0]->setContentWidth(
 				std::abs(
-					m_fields->m_highlights[0]->getPositionX() - getCharNodeSpacePos(to == -1 ? m_fields->m_string.size() - 1 : to, to != -1).x
+					m_fields->m_highlights[0]->getPositionX() - getCharNodePosInfo(to == -1 ? m_fields->m_string.size() - 1 : to, to != -1).position.x
 				)
 			);
 			m_fields->m_highlights[0]->setScaleY(
@@ -427,8 +428,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 					// label is anchored to bottom left :D
 					highlightSprite->setPositionY(
-						this->convertToNodeSpace(this->m_textArea->m_label->convertToWorldSpace(label->getPosition())).y +
-						(label->getContentHeight() / 2)
+						this->convertToNodeSpace(
+							this->m_textArea->m_label->convertToWorldSpace(label->getPosition())
+						).y + (label->getContentHeight() / 2)
 					);
 					highlightSprite->setScaleY(2.3f * this->m_textArea->getScale());
 
@@ -444,17 +446,26 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 						{
 							hasHighlightedStart = true;
 
-							highlightSprite->setPositionX(getCharNodeSpacePosAtLine(targetFrom, line, true).x);
+							highlightSprite->setPositionX(getCharNodePosInfoAtLine(targetFrom, line, true).position.x);
+							highlightSprite->setVisible(true);
 
 							// in case we're highlighting from and to the same label
-							if (targetTo > labelStrLen || targetTo == labelStrLen + 1)
+							if (targetTo > labelStrLen)
 							{
+								float targetXPos;
+
+								// fix space character being quirky and being positioned in the bottom left of the last character :D
+								if (m_fields->m_string[labelStrLen] == ' ')
+								{
+									const auto& lastCharNode = getCharNodePosInfoAtLine(labelStrLen - 1, line, false);
+									targetXPos = lastCharNode.position.x + (lastCharNode.widthFromCenter * 2);
+								}
+								else
+									targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, true).position.x;
+
 								highlightSprite->setContentWidth(
-									std::abs(
-										highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(labelStrLen, line, targetTo != labelStrLen + 1).x
-									)
+									std::abs(highlightSprite->getPositionX() - targetXPos)
 								);
-								highlightSprite->setVisible(true);
 
 								if (targetTo == labelStrLen + 1)
 									hasHighlightedEnd = true;
@@ -463,10 +474,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 							{
 								highlightSprite->setContentWidth(
 									std::abs(
-										highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(targetTo, line, to != -1).x
+										highlightSprite->getPositionX() - getCharNodePosInfoAtLine(targetTo, line, to != -1).position.x
 									)
 								);
-								highlightSprite->setVisible(true);
 
 								hasHighlightedEnd = true;
 							}
@@ -474,13 +484,13 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 					}
 					else if (!hasHighlightedEnd)
 					{
-						highlightSprite->setPositionX(getCharNodeSpacePosAtLine(0, line, true).x);
+						highlightSprite->setPositionX(getCharNodePosInfoAtLine(0, line, true).position.x);
 
 						if (targetTo > labelStrLen)
 						{
 							highlightSprite->setContentWidth(
 								std::abs(
-									highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(labelStrLen, line, to != -1).x
+									highlightSprite->getPositionX() - getCharNodePosInfoAtLine(labelStrLen, line, to != -1).position.x
 								)
 							);
 							highlightSprite->setVisible(true);
@@ -489,7 +499,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 						{
 							highlightSprite->setContentWidth(
 								std::abs(
-									highlightSprite->getPositionX() - getCharNodeSpacePosAtLine(targetTo, line, to != -1).x
+									highlightSprite->getPositionX() - getCharNodePosInfoAtLine(targetTo, line, to != -1).position.x
 								)
 							);
 							highlightSprite->setVisible(true);
@@ -516,11 +526,13 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	{
 		if (
 			!BI::geode::get<bool>("allow-any-character") &&
-			BI::mods::isVanillaInput() &&
+			BI::gd::isVanillaInput() &&
 			std::string_view(this->m_allowedChars).find(character) == std::string_view::npos
 			) return;
 
-		if (m_fields->m_highlighted.isHighlighting())
+		const bool wasHighlighting = m_fields->m_highlighted.isHighlighting();
+
+		if (wasHighlighting)
 			insertStrAtPos(
 				m_fields->m_highlighted.getFromPos(),
 				m_fields->m_highlighted.getLength(),
@@ -528,7 +540,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			);
 
 		setAndUpdateString(
-			BI::utils::insertCharAtIndex(m_fields->m_string, pos, character)
+			BI::utils::insertCharAtIndex(m_fields->m_string, wasHighlighting ? m_fields->m_pos : pos, character)
 		);
 
 		this->updateBlinkLabelToChar(getAndSetNextPos());
@@ -615,7 +627,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	}
 
 	/**
-	 * @brief Gets the character's position relative to the the parent CCTextInputNode
+	 * @brief Gets the character's position info relative to the the parent CCTextInputNode
 	 * 
 	 * This position is anchored to the left (or right) of the actual position, and is not the center of the character.
 	 * e.g.:
@@ -631,9 +643,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 * 
 	 * @param pos
 	 * @param isLeftAnchored
-	 * @return CCPoint
+	 * @return CharNode
 	 */
-	CCPoint getCharNodeSpacePos(std::size_t pos, bool isLeftAnchored)
+	CharNode getCharNodePosInfo(std::size_t pos, bool isLeftAnchored)
 	{
 		if (pos == -1)
 			pos = m_fields->m_string.length();
@@ -648,10 +660,14 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 				this->m_placeholderLabel->convertToWorldSpace(charNode->getPosition())
 			);
 
-			const float offset = ((charNode->getContentWidth() * this->m_placeholderLabel->getScaleX()) / 2);
+			const float offset = (charNode->getContentWidth() * this->m_placeholderLabel->getScaleX()) / 2;
 			return {
-				isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
-				charNodeNodeSpacePos.y
+				{
+					isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
+					charNodeNodeSpacePos.y
+				},
+				charNodeNodeSpacePos,
+				offset
 			};
 		}
 		else
@@ -677,10 +693,14 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 				targetLabel->convertToWorldSpace(charNode->getPosition())
 			);
 
-			const float offset = ((charNode->getContentWidth() * this->m_textArea->getScaleX()) / 2);
+			const float offset = (charNode->getContentWidth() * this->m_textArea->getScaleX()) / 2;
 			return {
-				isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
-				charNodeNodeSpacePos.y
+				{
+					isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
+					charNodeNodeSpacePos.y
+				},
+				charNodeNodeSpacePos,
+				offset
 			};
 		}
 	}
@@ -694,9 +714,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 * @param pos
 	 * @param line
 	 * @param isLeftAnchored
-	 * @return CCPoint 
+	 * @return CharNode 
 	 */
-	CCPoint getCharNodeSpacePosAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored)
+	CharNode getCharNodePosInfoAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored)
 	{
 		auto targetLabel = static_cast<CCLabelBMFont*>(
 			this->m_textArea->m_label->getChildren()->objectAtIndex(line)
@@ -709,13 +729,22 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			targetLabel->convertToWorldSpace(charNode->getPosition())
 		);
 
-		const float offset = ((charNode->getContentWidth() * this->m_textArea->getScaleX()) / 2);
+		const float offset = (charNode->getContentWidth() * this->m_textArea->getScaleX()) / 2;
 		return {
-			isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
-			charNodeNodeSpacePos.y
+			{
+				isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
+				charNodeNodeSpacePos.y
+			},
+			charNodeNodeSpacePos,
+			offset
 		};
 	}
 
+	/**
+	 * @brief Adds a highlight node to the parent CCTextInputNode
+	 * 
+	 * @return cocos2d::extension::CCScale9Sprite* 
+	 */
 	cocos2d::extension::CCScale9Sprite* appendHighlightNode()
 	{
 		auto highlight = cocos2d::extension::CCScale9Sprite::create("square.png");
@@ -736,6 +765,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		return highlight;
 	}
 
+	/**
+	 * @brief Removes the last highlight node from the parent
+	 */
 	void removeLastHighlightNode()
 	{
 		m_fields->m_highlights.back()->removeFromParent();
@@ -919,12 +951,13 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 	}
 
 	// for some odd reason, the cursor's position isnt updated until the 2nd click
+	// or not at all in TextAreas
 	// this fixes it :D
 	void onGLFWMouseCallBack(GLFWwindow* window, int button, int action, int mods)
 	{
 		CCEGLView::onGLFWMouseCallBack(window, button, action, mods);
 
-		if (!g_selectedInput || button != GLFW_MOUSE_BUTTON_1) return;
+		if (!g_selectedInput || button != GLFW_MOUSE_BUTTON_1 || action == 1) return;
 
 		CCSize winSize = CCDirector::sharedDirector()->getWinSize();
 		CCPoint mousePos = BI::cocos::getMousePosition();

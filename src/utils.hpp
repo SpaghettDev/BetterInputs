@@ -114,7 +114,7 @@ namespace BI
 		}
 	}
 
-	namespace mods
+	namespace gd
 	{
 		inline bool isVanillaInput()
 		{
