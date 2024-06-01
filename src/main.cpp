@@ -7,6 +7,7 @@
 
 #include <Geode/modify/CCTextFieldTTF.hpp>
 #include <Geode/modify/CCScene.hpp>
+#include <Geode/binding/LoadingCircle.hpp>
 
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
@@ -865,7 +866,8 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 		if (
 			!g_selectedInput ||
 			!BI::geode::get<bool>("auto-deselect") ||
-			typeinfo_cast<geode::Notification*>(this->getChildren()->lastObject())
+			typeinfo_cast<geode::Notification*>(this->getChildren()->lastObject()) ||
+			typeinfo_cast<LoadingCircle*>(this->getChildren()->lastObject())
 		) {
 			m_fields->m_outermostInputParent = nullptr;
 			return;
@@ -880,12 +882,7 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 			m_fields->m_outermostInputParent = outermostInputParent;
 		}
 
-		int highestZOrder = INT_MIN;
-		for (auto* layer : CCArrayExt<CCLayer*>(this->getChildren()))
-			if (layer != m_fields->m_outermostInputParent && layer->getZOrder() > highestZOrder)
-				highestZOrder = layer->getZOrder();
-
-		if (m_fields->m_outermostInputParent->getZOrder() < highestZOrder)
+		if (static_cast<CCLayer*>(this->getChildren()->lastObject())->getZOrder() > m_fields->m_outermostInputParent->getZOrder())
 			g_selectedInput->deselectInput();
 	}
 };

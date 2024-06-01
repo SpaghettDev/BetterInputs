@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.2.1-beta] - 2024-06-01
+
+### Changed
+
+- For loop in layer detection to just use last node
+
 ## [2.2.0-beta] - 2024-06-01
 
 ### Added
