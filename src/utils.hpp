@@ -1,7 +1,11 @@
 #include <string>
 #include <string_view>
 
-#include <Geode/platform/windows.hpp>
+#include <Geode/cocos/robtop/glfw/glfw3.h>
+
+#ifdef GEODE_IS_WINDOWS
+#include <WinUser.h> // virtual keys
+#endif
 
 #include <Geode/cocos/cocoa/CCGeometry.h>
 
@@ -106,11 +110,32 @@ namespace BI
 		}
 	}
 
-	namespace windows
+	enum class PlatformKey
 	{
-		inline bool keyDown(unsigned int vk)
+		LEFT_CONTROL,
+		LEFT_SHIFT
+	};
+	namespace platform
+	{
+		inline bool keyDown(PlatformKey key)
 		{
-			return GetKeyState(vk) & 0x8000;
+#ifdef GEODE_IS_WINDOWS
+			switch (key)
+			{
+				case BI::PlatformKey::LEFT_CONTROL:
+					return GetKeyState(VK_CONTROL) & 0x8000;
+				case BI::PlatformKey::LEFT_SHIFT:
+					return GetKeyState(VK_SHIFT) & 0x8000;
+			}
+#elif defined(GEODE_IS_MACOS)
+			switch (key)
+			{
+				case BI::PlatformKey::LEFT_CONTROL:
+					return cocos2d::CCKeyboardDispatcher::get()->getControlKeyPressed();
+				case BI::PlatformKey::LEFT_SHIFT:
+					return cocos2d::CCKeyboardDispatcher::get()->getShiftKeyPressed();
+			}
+#endif
 		}
 	}
 
@@ -118,11 +143,15 @@ namespace BI
 	{
 		inline bool isVanillaInput()
 		{
-			std::uintptr_t readMemory;
+			return true;
+// 			std::uintptr_t readMemory;
 
-			std::memcpy(&readMemory, reinterpret_cast<void*>(geode::base::get() + 0x2F974), 1);
-
-			return readMemory == 0x0475;
+// #ifdef GEODE_IS_WINDOWS
+// 			std::memcpy(&readMemory, reinterpret_cast<void*>(geode::base::get() + 0x2F974), 1);
+// #elif defined(GEODE_IS_MACOS)
+// 			std::memcpy(&readMemory, reinterpret_cast<void*>(geode::base::get() + 0x2F974), 1);
+// #endif
+// 			return readMemory == 0x0475;
 		}
 	}
 

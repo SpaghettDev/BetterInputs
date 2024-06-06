@@ -137,6 +137,16 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		this->m_cursor->setVisible(false);
 	}
 
+	void onStringEmpty()
+	{
+		if (this->m_placeholderLabel)
+			this->m_placeholderLabel->setString("");
+		else
+			this->m_textArea->setString("");
+		updateBlinkLabelToCharForced(-1);
+		showTextOrPlaceholder(false);
+	}
+
 
 	// Left and Right arrow events
 	void onRightArrow(bool isCtrl, bool isShift)
@@ -342,14 +352,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		);
 
 		if (m_fields->m_string.empty())
-		{
-			if (this->m_placeholderLabel)
-				this->m_placeholderLabel->setString("");
-			else
-				this->m_textArea->setString("");
-			updateBlinkLabelToCharForced(-1);
-			showTextOrPlaceholder(false);
-		}
+			onStringEmpty();
 	}
 
 
@@ -596,14 +599,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			);
 
 			if (m_fields->m_string.empty())
-			{
-				if (this->m_placeholderLabel)
-					this->m_placeholderLabel->setString("");
-				else
-					this->m_textArea->setString("");
-				updateBlinkLabelToCharForced(-1);
-				showTextOrPlaceholder(false);
-			}
+				onStringEmpty();
 
 			return;
 		}
@@ -622,14 +618,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			updateBlinkLabelToCharForced(pos - 1 == m_fields->m_string.length() ? -1 : pos - 1);
 
 		if (m_fields->m_string.empty())
-		{
-			if (this->m_placeholderLabel)
-				this->m_placeholderLabel->setString("");
-			else
-				this->m_textArea->setString("");
-			updateBlinkLabelToCharForced(-1);
-			showTextOrPlaceholder(false);
-		}
+			onStringEmpty();
 	}
 
 	/**
@@ -958,15 +947,15 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 
 				case GLFW_KEY_RIGHT:
 					g_selectedInput->onRightArrow(
-						BI::windows::keyDown(VK_CONTROL),
-						BI::windows::keyDown(VK_SHIFT)
+						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
 					break;
 
 				case GLFW_KEY_LEFT:
 					g_selectedInput->onLeftArrow(
-						BI::windows::keyDown(VK_CONTROL),
-						BI::windows::keyDown(VK_SHIFT)
+						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
 					break;
 
@@ -976,7 +965,7 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 		}
 
 		// this is what onGLFWKeyCallback actually does to check for control lol
-		if (action == 1 && BI::windows::keyDown(VK_CONTROL))
+		if (action == 1 && BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL))
 		{
 			switch (key)
 			{
