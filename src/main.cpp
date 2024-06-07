@@ -1181,6 +1181,8 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 };
 
 
+#ifdef GEODE_IS_WINDOWS
+
 // this pretty much reworks everything when a CCTextInputNode is interacted with,
 // from text input to deletion and even selection
 
@@ -1370,3 +1372,5 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 			g_selectedInput->useUpdateBlinkPos(false);
 	}
 };
+
+#endif
