@@ -28,8 +28,8 @@ jobs:
         uses: geode-sdk/build-geode-mod@main
         with:
           cli: 'v3.0.0-beta.1'
-          bindings: geode-sdk/bindings
-          bindings-ref: main
+          bindings: SpaghettDev/bindings
+          bindings-ref: cctextinputnode-mac
           combine: true
           target: ${{ matrix.config.target }}
 
