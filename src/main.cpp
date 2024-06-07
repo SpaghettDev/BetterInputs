@@ -880,8 +880,6 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 // this pretty much reworks everything when a CCTextInputNode is interacted with,
 // from text input to deletion and even selection
 
-#ifdef GEODE_IS_WINDOWS
-
 // backspace and del is handled in dispatchDeleteBackward/dispatchDeleteForward then in CCEGLView::onGLFWKeyCallback
 // same goes for all the other characters (dispatchInsertText then CCEGLView::onGLFWKeyCallback)
 // except for ctrl and shift, which are only handled in CCEGLView::onGLFWKeyCallback
@@ -1017,5 +1015,3 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 		g_selectedInput->useUpdateBlinkPos(false);
 	}
 };
-
-#endif
