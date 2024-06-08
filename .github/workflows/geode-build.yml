@@ -17,7 +17,7 @@ jobs:
 
         - name: macOS
           os: macos-latest
-          configure-args: '-DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON'
+          configure-args: '-DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON -DGEODE_DISABLE_PRECOMPILED_HEADERS=ON'
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
