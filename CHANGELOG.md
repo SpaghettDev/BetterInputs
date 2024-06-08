@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v3.1.0-beta] - 2024-06-08
+
+### Fixed
+
+- Dragging input in the index crashing the game
+- Some mouse issues
+
 ## [v3.0.0-beta] - 2024-06-06
 
 ### Added
