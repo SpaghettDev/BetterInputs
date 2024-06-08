@@ -836,8 +836,8 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 {
 	struct Fields
 	{
-		// its not like the input will change parents...
-		CCLayer* m_outermostInputParent = nullptr;
+		std::size_t m_previous_scene_children_count = 0;
+		CCLayer* m_outermost_input_parent;
 	};
 
 	static CCScene* create()
@@ -852,27 +852,28 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 
 	void onUpdateTick(float)
 	{
+		const std::size_t currentChildrenCount = this->getChildrenCount();
+
 		if (
 			!g_selectedInput ||
-			!BI::geode::get<bool>("auto-deselect") ||
-			typeinfo_cast<geode::Notification*>(this->getChildren()->lastObject()) ||
-			typeinfo_cast<LoadingCircle*>(this->getChildren()->lastObject())
-		) {
-			m_fields->m_outermostInputParent = nullptr;
+			currentChildrenCount == 1 ||
+			currentChildrenCount == m_fields->m_previous_scene_children_count
+		)
 			return;
-		}
 
-		if (!m_fields->m_outermostInputParent)
+		if (!m_fields->m_outermost_input_parent)
 		{
 			CCLayer* outermostInputParent = static_cast<CCLayer*>(g_selectedInput->getParent());
 			while (outermostInputParent->getParent() != this)
 				outermostInputParent = static_cast<CCLayer*>(outermostInputParent->getParent());
 
-			m_fields->m_outermostInputParent = outermostInputParent;
+			m_fields->m_outermost_input_parent = outermostInputParent;
 		}
 
-		if (static_cast<CCLayer*>(this->getChildren()->lastObject())->getZOrder() > m_fields->m_outermostInputParent->getZOrder())
+		if (static_cast<CCLayer*>(this->getChildren()->lastObject())->getZOrder() > m_fields->m_outermost_input_parent->getZOrder())
 			g_selectedInput->deselectInput();
+
+		m_fields->m_previous_scene_children_count = currentChildrenCount;
 	}
 };
 
@@ -999,22 +1000,25 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 	{
 		CCEGLView::onGLFWMouseCallBack(window, button, action, mods);
 
-		if (!g_selectedInput || button != GLFW_MOUSE_BUTTON_1 || action == 1) return;
+		if (!g_selectedInput || button != GLFW_MOUSE_BUTTON_1 || action == 2) return;
 
-		CCSize winSize = CCDirector::sharedDirector()->getWinSize();
-		CCPoint mousePos = BI::cocos::getMousePosition();
+		if (action == 1)
+		{
+			CCSize winSize = CCDirector::sharedDirector()->getWinSize();
+			CCPoint mousePos = BI::cocos::getMousePosition();
 
-		// OpenGL's mouse origin is the bottom left
-		// CCTouch's mouse origin is top left (because of course it is)
-		CCTouch touch{};
-		touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
+			// OpenGL's mouse origin is the bottom left
+			// CCTouch's mouse origin is top left (because of course it is)
+			CCTouch touch{};
+			touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
 
-		g_selectedInput->useUpdateBlinkPos(true);
+			g_selectedInput->useUpdateBlinkPos(true);
 
-		// 🥰
-		g_selectedInput->ccTouchBegan(&touch, nullptr);
-
-		g_selectedInput->useUpdateBlinkPos(false);
+			// 🥰
+			g_selectedInput->ccTouchBegan(&touch, nullptr);
+		}
+		else
+			g_selectedInput->useUpdateBlinkPos(false);
 	}
 };
 
