@@ -85,6 +85,7 @@ namespace BI
 	{
 		inline cocos2d::CCPoint getMousePosition()
 		{
+#ifdef GEODE_IS_WINDOWS
 			auto* director = cocos2d::CCDirector::sharedDirector();
 			auto* gl = director->getOpenGLView();
 			auto winSize = director->getWinSize();
@@ -92,6 +93,9 @@ namespace BI
 			auto mouse = gl->getMousePosition() / frameSize;
 
 			return cocos2d::CCPoint{ mouse.x, 1.f - mouse.y } * winSize;
+#elif defined(GEODE_IS_MACOS)
+			return geode::cocos::getMousePos();
+#endif
 		}
 
 		inline bool isPositionInNode(cocos2d::CCNode* node, const cocos2d::CCPoint& pos)
