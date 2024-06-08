@@ -17,6 +17,7 @@ jobs:
 
         - name: macOS
           os: macos-latest
+          configure-args: '-DCMAKE_RANLIB="/usr/bin/ranlib"'
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
