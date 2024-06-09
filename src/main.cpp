@@ -1055,7 +1055,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		);
 		highlight->setAnchorPoint({ .0f, .5f });
 		highlight->setVisible(false);
-		highlight->setID(std::format(GEODE_MOD_ID "/highlight-sprite-{}", m_fields->m_highlights.size() + 1));
+		highlight->setID(fmt::format(GEODE_MOD_ID "/highlight-sprite-{}", m_fields->m_highlights.size() + 1));
 		this->addChild(highlight, 10);
 
 		m_fields->m_highlights.emplace_back(highlight);
