@@ -30,7 +30,7 @@ jobs:
           sdk: 'nightly'
           cli: 'v3.0.0-beta.1'
           bindings: SpaghettDev/bindings
-          bindings-ref: BetterInputs
+          bindings-ref: bi-stuff
           combine: true
           target: ${{ matrix.config.target }}
 
