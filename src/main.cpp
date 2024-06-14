@@ -2,12 +2,19 @@
 #include <string_view>
 
 #include <Geode/modify/CCTextInputNode.hpp>
-#include <Geode/modify/CCEGLView.hpp>
 #include <Geode/modify/CCIMEDispatcher.hpp>
+
+#ifdef GEODE_IS_WINDOWS
+#include <Geode/modify/CCEGLView.hpp>
+#elif defined(GEODE_IS_MACOS)
+#include <Geode/modify/CCKeyboardDispatcher.hpp>
+#include <Geode/modify/CCTouchDispatcher.hpp>
+
+#include "types/TouchMessageType.hpp"
+#endif
 
 #include <Geode/modify/CCTextFieldTTF.hpp>
 #include <Geode/modify/CCScene.hpp>
-#include <Geode/binding/LoadingCircle.hpp>
 
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
@@ -1181,7 +1188,6 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 };
 
 
-#ifdef GEODE_IS_WINDOWS
 // this pretty much reworks everything when a CCTextInputNode is interacted with,
 // from text input to deletion and even selection
 
@@ -1212,6 +1218,9 @@ struct BetterCCIMEDispatcher : Modify<BetterCCIMEDispatcher, CCIMEDispatcher>
 		CCIMEDispatcher::dispatchInsertText(text, len, keyCode);
 	}
 };
+
+
+#ifdef GEODE_IS_WINDOWS
 
 // handles ctrl and shift
 // also fixes mouse clicks
@@ -1338,6 +1347,9 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 					case GLFW_KEY_INSERT:
 						g_selectedInput->onPaste();
 						break;
+
+					default:
+						break;
 				}
 			}
 		}
@@ -1361,6 +1373,166 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 			// CCTouch's mouse origin is top left (because of course it is)
 			CCTouch touch{};
 			touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
+
+			g_selectedInput->useUpdateBlinkPos(true);
+
+			// 🥰
+			g_selectedInput->ccTouchBegan(&touch, nullptr);
+		}
+		else
+			g_selectedInput->useUpdateBlinkPos(false);
+	}
+};
+
+#elif defined(GEODE_IS_MACOS)
+
+// handles ctrl and shift
+struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDispatcher>
+{
+	bool dispatchKeyboardMSG(cocos2d::enumKeyCodes key, bool isKeyDown, bool isKeyRepeat)
+	{
+		if (!g_selectedInput)
+			return CCKeyboardDispatcher::dispatchKeyboardMSG(key, isKeyDown, isKeyRepeat);
+
+		if (isKeyDown || isKeyRepeat)
+		{
+			if (
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+			) {
+				switch (key)
+				{
+					case enumKeyCodes::KEY_Escape:
+						g_selectedInput->deselectInput();
+						break;
+
+					case enumKeyCodes::KEY_Backspace:
+					case enumKeyCodes::KEY_Delete:
+						g_selectedInput->onDelete(false, key == GLFW_KEY_DELETE);
+						break;
+
+					default:
+						break;
+				}
+			}
+
+			switch (key)
+			{
+				case enumKeyCodes::KEY_Right:
+					g_selectedInput->onRightArrowKey(
+						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+					);
+					break;
+
+				case enumKeyCodes::KEY_Left:
+					g_selectedInput->onLeftArrowKey(
+						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+					);
+					break;
+
+				default:
+					break;
+			}
+		}
+
+		if (
+			isKeyDown &&
+			BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
+			!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+		) {
+			switch (key)
+			{
+				case enumKeyCodes::KEY_A:
+					g_selectedInput->highlightFromToPos(0, -1);
+					break;
+
+				case enumKeyCodes::KEY_Insert:
+				case enumKeyCodes::KEY_C:
+					g_selectedInput->onCopy();
+					break;
+
+				case enumKeyCodes::KEY_V:
+					g_selectedInput->onPaste();
+					break;
+
+				case enumKeyCodes::KEY_X:
+					g_selectedInput->onCut();
+					break;
+
+				case enumKeyCodes::KEY_Backspace:
+				case enumKeyCodes::KEY_Delete:
+					g_selectedInput->onDelete(true, key == GLFW_KEY_DELETE);
+					break;
+
+				default:
+					break;
+			}
+		}
+
+		if (isKeyDown)
+		{
+			if (!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL))
+			{
+				switch (key)
+				{
+					case enumKeyCodes::KEY_Home:
+						g_selectedInput->onHomeKey(
+							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						);
+						break;
+
+					case enumKeyCodes::KEY_End:
+						g_selectedInput->onEndKey(
+							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						);
+						break;
+
+					default:
+						break;
+				}
+			}
+
+			if (
+				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT) &&
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL)
+			) {
+				switch (key)
+				{
+					case enumKeyCodes::KEY_Insert:
+						g_selectedInput->onPaste();
+						break;
+
+					default:
+						break;
+				}
+			}
+		}
+
+		return false;
+	}
+};
+
+// handles mouse clicks
+struct BetterTouchDispatcher : Modify<BetterTouchDispatcher, CCTouchDispatcher>
+{
+	// https://github.com/ninXout/Crystal-Client/blob/7df5a8336ccb852bc984e55dd29ca27bb1741443/src/ImGui/ImGui.cpp#L96
+	void touches(cocos2d::CCSet* touches, cocos2d::CCEvent* event, unsigned int type)
+	{
+		if (!g_selectedInput)
+			return CCTouchDispatcher::touches(touches, event, type);
+
+		auto* touch = static_cast<CCTouch*>(touches->anyObject());
+		const auto touchPos = touch->getLocation();
+
+		if (type == TouchMessageType::Began)
+		{
+			CCSize winSize = CCDirector::sharedDirector()->getWinSize();
+
+			// the touch event's origin is bottom left
+			CCTouch touch{};
+			touch.setTouchInfo(0, touchPos.x, winSize.height - touchPos.y);
 
 			g_selectedInput->useUpdateBlinkPos(true);
 
