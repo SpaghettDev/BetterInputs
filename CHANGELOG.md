@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v4.0.0-beta] - 2024-06-13
+
+### Added
+
+- Some more keybinds! (Alphalaneous wanted them)
+  - Ctrl+Del, Ctrl+Backspace
+  - Home/End, Shift+Home, Shift+End
+  - Ctrl+Ins
+  - Shift+Ins
+- A TextArea cursor fix. All it does is fix a weird vanilla bug where the cursor is positioned sometimes in the middle of the character
+- Actual MacOS support
+
+### Changed
+
+- How the AlertLayer fix works (it checks for touch priority instead of Z order now)
+- How `insertCharAtIndex` and `insertStrAtIndex` to be more efficient (it resizes the string if needed by double, instead of always resizing)
+
+### Fixed
+
+- Numerous text selection bugs in TextAreas
+- Ctrl+Left/Right arrow not positioning cursor correctly (skipping to the character before/after the separator)
+- A lot of other bugs
+
 ## [v3.1.0-beta] - 2024-06-08
 
 ### Fixed

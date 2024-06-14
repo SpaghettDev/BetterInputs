@@ -13,6 +13,7 @@
 
 #include "types/HighlightedString.hpp"
 #include "types/CharNode.hpp"
+#include "types/InputNodeTextAreaInfo.hpp"
 #include "utils.hpp"
 
 using namespace geode::prelude;
@@ -83,7 +84,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		if (m_fields->m_use_update_blink_pos)
 			m_fields->m_pos = pos;
 
+		this->m_textField->m_uCursorPos = m_fields->m_pos;
+
 		CCTextInputNode::updateBlinkLabelToChar(m_fields->m_pos);
+
+		if (this->m_textArea)
+			textAreaCursorFix(m_fields->m_pos);
 
 		if (m_fields->m_highlighted.isHighlighting() && !m_fields->m_is_adding_to_highlight)
 			clearHighlight();
@@ -95,74 +101,85 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	}
 
 
-	// helpers
-	void setAndUpdateString(const std::string& str)
+	// bug fixes
+	void textAreaCursorFix(std::size_t pos)
 	{
-		// the position is modified in the call to setString
-		const int prevPos = m_fields->m_pos;
-		m_fields->m_string = str;
+		if (m_fields->m_string.empty()) return;
 
-		CCTextInputNode::setString(str);
+		// fix space character being quirky and being positioned in the bottom left of the last character
+		// which makes this function position the cursor sometimes be in the middle of the previous character
+		// or sometimes somewhere not even close
+		// also it sometimes just positions the cursor somewhere completely wrong regardless of the character being
+		// a space or not, which we fix below (i think CCTextInputNode is very ass)
+		if (m_fields->m_string.length() >= 2)
+		{
+			// ???
+			if (m_fields->m_pos > m_fields->m_string.length() - 1)
+				m_fields->m_pos = -1;
 
-		m_fields->m_pos = prevPos;
+			// what's to the right of the cursor
+			int pos = m_fields->m_pos == -1 ? m_fields->m_string.length() - 1 : m_fields->m_pos;
+			const auto& cursorTextLabelInfo = getTextLabelInfoFromPos(m_fields->m_pos);
+
+			if (pos != 0 && m_fields->m_string[pos - 1] == ' ')
+			{
+				float targetXPos;
+
+				// if the space character isnt the last in the current label, set the position to the left of the next character
+				if (cursorTextLabelInfo.numCharsFromLabelStart != std::string_view(cursorTextLabelInfo.label->getString()).length() - 1)
+					targetXPos = getCharNodePosInfo(pos, m_fields->m_pos != -1).position.x;
+				else
+				{
+					const auto& secondToLastCharNode = getCharNodePosInfo(pos - 2, false);
+					targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
+				}
+
+				this->m_cursor->setPositionX(targetXPos);
+			}
+			else
+			{
+				if (m_fields->m_pos == -1)
+				{
+					float targetXPos;
+
+					if (m_fields->m_string[pos] == ' ')
+					{
+						const auto& secondToLastCharNode = getCharNodePosInfo(pos - 1, false);
+
+						targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
+					}
+					else
+						targetXPos = getCharNodePosInfo(-1, false).position.x;
+
+					this->m_cursor->setPositionX(targetXPos);
+				}
+				else
+					this->m_cursor->setPositionX(
+						getCharNodePosInfo(
+							cursorTextLabelInfo.numCharsFromStart - (m_fields->m_pos != 0),
+							m_fields->m_pos == 0
+						).position.x
+					);
+			}
+		}
 	}
 
-	void updateBlinkLabelToCharForced(int pos)
+
+	// key events
+	void onRightArrowKey(bool isCtrl, bool isShift)
 	{
-		m_fields->m_use_update_blink_pos = true;
+		if (!m_fields->m_highlighted.isHighlighting() && (m_fields->m_string.empty() || m_fields->m_pos == -1)) return;
 
-		this->updateBlinkLabelToChar(pos);
-
-		m_fields->m_use_update_blink_pos = false;
-	}
-
-	void clearHighlight()
-	{
-		for (auto* highlight : m_fields->m_highlights)
-			highlight->setVisible(false);
-
-		m_fields->m_highlighted.reset();
-	}
-
-	void deselectInput()
-	{
-		if (this->m_placeholderLabel)
-			this->m_placeholderLabel->setString(m_fields->m_placeholder.c_str());
-		else
-			this->m_textArea->setString(m_fields->m_placeholder.c_str());
-
-		showTextOrPlaceholder(true);
-
-		this->onClickTrackNode(false);
-		this->m_cursor->setVisible(false);
-	}
-
-	void onStringEmpty()
-	{
-		if (this->m_placeholderLabel)
-			this->m_placeholderLabel->setString("");
-		else
-			this->m_textArea->setString("");
-		updateBlinkLabelToCharForced(-1);
-		showTextOrPlaceholder(false);
-	}
-
-
-	// Left and Right arrow events
-	void onRightArrow(bool isCtrl, bool isShift)
-	{
 		if (m_fields->m_highlighted.isHighlighting() && !isShift)
 		{
 			updateBlinkLabelToCharForced(
-				m_fields->m_highlighted.getToPos() == m_fields->m_string.size()
+				m_fields->m_highlighted.getToPos(false) == m_fields->m_string.length()
 					? -1
 					: m_fields->m_highlighted.getToPos()
 			);
 			clearHighlight();
 			return;
 		}
-
-		if (m_fields->m_string.empty() || m_fields->m_pos == -1) return;
 
 		if (isCtrl && isShift)
 		{
@@ -227,20 +244,20 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		this->updateBlinkLabelToChar(getAndSetNextPos());
 	}
 
-	void onLeftArrow(bool isCtrl, bool isShift)
+	void onLeftArrowKey(bool isCtrl, bool isShift)
 	{
+		if (!m_fields->m_highlighted.isHighlighting() && (m_fields->m_string.empty() || m_fields->m_pos == 0)) return;
+
 		if (m_fields->m_highlighted.isHighlighting() && !isShift)
 		{
 			updateBlinkLabelToCharForced(
-				m_fields->m_highlighted.getFromPos() == m_fields->m_string.size()
+				m_fields->m_highlighted.getFromPos() == m_fields->m_string.length()
 					? -1
 					: m_fields->m_highlighted.getFromPos()
 			);
 			clearHighlight();
 			return;
 		}
-
-		if (m_fields->m_string.empty() || m_fields->m_pos == 0) return;
 
 		if (isCtrl && isShift)
 		{
@@ -310,10 +327,118 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		this->updateBlinkLabelToChar(getAndSetPreviousPos());
 	}
 
-
-	// other events
-	void onDelete(bool isDel)
+	void onHomeKey(bool isShift)
 	{
+		if (m_fields->m_string.empty() || m_fields->m_pos == 0) return;
+
+		if (this->m_textArea)
+		{
+			const auto& cursorTextLabelInfo = getTextLabelInfoFromPos(m_fields->m_pos);
+
+			if (cursorTextLabelInfo.numCharsFromLabelStart == 0) return;
+
+			if (isShift)
+				highlightFromToPos(
+					m_fields->m_highlighted.isHighlighting()
+						? m_fields->m_highlighted.getToPos()
+						: cursorTextLabelInfo.numCharsFromStart - cursorTextLabelInfo.numCharsFromLabelStart - 1,
+					m_fields->m_pos
+				);
+			else
+				updateBlinkLabelToCharForced(
+					cursorTextLabelInfo.numCharsFromStart - cursorTextLabelInfo.numCharsFromLabelStart - 1
+				);
+		}
+		else
+		{
+			if (isShift)
+				highlightFromToPos(
+					0,
+					m_fields->m_highlighted.isHighlighting()
+						? m_fields->m_highlighted.getToPos()
+						: m_fields->m_pos
+				);
+			else
+				updateBlinkLabelToCharForced(0);
+		}
+	}
+
+	void onEndKey(bool isShift)
+	{
+		if (m_fields->m_pos == m_fields->m_string.length() - 1)
+			updateBlinkLabelToCharForced(-1);
+
+		if (m_fields->m_string.empty() || m_fields->m_pos == -1) return;
+
+		if (this->m_textArea)
+		{
+			const auto& cursorTextLabelInfo = getTextLabelInfoFromPos(m_fields->m_pos);
+
+			int targetPos = m_fields->m_pos + (
+				std::string_view(cursorTextLabelInfo.label->getString()).length() - cursorTextLabelInfo.numCharsFromLabelStart
+			) - 1;
+
+			if (
+				targetPos - 1 == cursorTextLabelInfo.numCharsFromLabelStart &&
+				this->m_textArea->m_label->getChildrenCount() >= cursorTextLabelInfo.line
+			) {
+				// get the end of the next label
+				targetPos = targetPos + std::string_view(
+					static_cast<CCLabelBMFont*>(
+						this->m_textArea->m_label->getChildren()->objectAtIndex(cursorTextLabelInfo.line + 1)
+					)->getString()
+				).length();
+
+				if (isShift)
+					highlightFromToPos(
+						m_fields->m_highlighted.isHighlighting()
+							? m_fields->m_highlighted.getFromPos()
+							: m_fields->m_pos,
+						targetPos
+					);
+				else
+					updateBlinkLabelToCharForced(targetPos);
+			}
+			else
+			{
+				if (isShift)
+					highlightFromToPos(m_fields->m_pos, targetPos == m_fields->m_string.length() ? -1 : targetPos);
+				else
+					updateBlinkLabelToCharForced(targetPos == m_fields->m_string.length() ? -1 : targetPos);
+			}
+		}
+		else
+		{
+			if (isShift)
+				highlightFromToPos(
+					m_fields->m_highlighted.isHighlighting()
+						? m_fields->m_highlighted.getFromPos()
+						: m_fields->m_pos,
+					-1
+				);
+			else
+				updateBlinkLabelToCharForced(-1);
+		}
+	}
+
+	void onDelete(bool isCtrl, bool isDel)
+	{
+		if (isCtrl)
+		{
+			if (!m_fields->m_highlighted.isHighlighting())
+			{
+				if (m_fields->m_pos == (isDel ? -1 : 0)) return;
+				if (isDel)
+					onRightArrowKey(true, true);
+				else
+					onLeftArrowKey(true, true);
+			}
+
+			deletePos(m_fields->m_pos, true);
+
+			return;
+		}
+
 		deletePos(m_fields->m_pos, isDel);
 	}
 
@@ -327,7 +452,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	void onPaste()
 	{
 		const std::string& clipboardText = clipboard::read();
-		const int pos = m_fields->m_pos == -1 ? m_fields->m_string.size() : m_fields->m_pos;
+		const int pos = m_fields->m_pos == -1 ? m_fields->m_string.length() : m_fields->m_pos;
 
 		if (m_fields->m_highlighted.isHighlighting())
 			insertStrAtPos(m_fields->m_highlighted.getFromPos(), m_fields->m_highlighted.getLength(), clipboardText);
@@ -335,7 +460,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		{
 			setAndUpdateString(BI::utils::insertStrAtIndex(m_fields->m_string, m_fields->m_pos, clipboardText));
 
-			updateBlinkLabelToCharForced(pos + clipboardText.size() == m_fields->m_string.size() ? -1 : pos + clipboardText.size());
+			updateBlinkLabelToCharForced(pos + clipboardText.size() == m_fields->m_string.length() ? -1 : pos + clipboardText.size());
 		}
 	}
 
@@ -356,11 +481,24 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	}
 
 
-	// Getters and Setters
+	// other events
+	void onStringEmpty()
+	{
+		if (this->m_placeholderLabel)
+			this->m_placeholderLabel->setString("");
+		else
+			this->m_textArea->setString("");
+		updateBlinkLabelToCharForced(-1);
+		showTextOrPlaceholder(false);
+	}
+
+
+	// getters and setters
 	void useUpdateBlinkPos(bool toggle)
 	{
 		m_fields->m_use_update_blink_pos = toggle;
 	}
+
 	void showTextOrPlaceholder(bool toggle)
 	{
 		if (this->m_placeholderLabel)
@@ -369,10 +507,12 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			this->m_textArea->setVisible(toggle);
 	}
 
-	int getPos() { return m_fields->m_pos; }
+	// TODO: maybe export these?
+	int getCursorPos() { return m_fields->m_pos; }
+	const HighlightedString& getHighlighted() { return m_fields->m_highlighted; }
 
 
-	// rewritten input stuff and highlighting
+	// rewritten input stuff, helpers and highlighting
 	/**
 	 * @brief Highlights from `from` to `to` by setting the highlight's content width
 	 * 
@@ -385,7 +525,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 		const CCPoint startPos = getCharNodePosInfo(0, false);
 
-		if ((from == -1 ? m_fields->m_string.size() : from) > (to == -1 ? m_fields->m_string.size() : to))
+		if ((from == -1 ? m_fields->m_string.length() : from) > (to == -1 ? m_fields->m_string.length() : to))
 			std::swap(from, to);
 
 		if (from == to)
@@ -398,7 +538,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			m_fields->m_highlights[0]->setPositionX(getCharNodePosInfo(from, true).position.x - 1.f);
 			m_fields->m_highlights[0]->setContentWidth(
 				std::abs(
-					m_fields->m_highlights[0]->getPositionX() - getCharNodePosInfo(to == -1 ? m_fields->m_string.size() - 1 : to, to != -1).position.x
+					m_fields->m_highlights[0]->getPositionX() - getCharNodePosInfo(to, to != -1).position.x
 				)
 			);
 			m_fields->m_highlights[0]->setScaleY(
@@ -427,7 +567,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			{
 				std::size_t line = 0;
 				std::size_t targetFrom = from;
-				std::size_t targetTo = (to == -1 ? m_fields->m_string.length() - 1 : to);
+				std::size_t targetTo = to == -1 ? m_fields->m_string.length() - 1 : to;
 
 				bool hasHighlightedStart = false;
 				bool hasHighlightedEnd = false;
@@ -444,35 +584,42 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 						).y + (label->getContentHeight() / 2)
 					);
 					highlightSprite->setScaleY(2.3f * this->m_textArea->getScale());
+					highlightSprite->setVisible(false);
 
 					if (hasHighlightedStart && hasHighlightedEnd)
-					{
-						highlightSprite->setVisible(false);
-						continue;
-					}
+						continue; // dont break in case other highlights are visible
 
 					if (!hasHighlightedStart)
 					{
 						if (targetFrom <= labelStrLen)
 						{
+							const auto& textLabelInfo = getTextLabelInfoFromPos(
+								m_fields->m_highlighted.isHighlighting()
+									? m_fields->m_highlighted.getToPos(false)
+									: m_fields->m_pos
+							);
 							hasHighlightedStart = true;
 
 							highlightSprite->setPositionX(getCharNodePosInfoAtLine(targetFrom, line, true).position.x);
 							highlightSprite->setVisible(true);
 
-							// in case we're highlighting from and to the same label
+							// in case we're highlighting from and to the next label/the same label
 							if (targetTo > labelStrLen)
 							{
 								float targetXPos;
 
 								// fix space character being quirky and being positioned in the bottom left of the last character :D
-								if (m_fields->m_string[labelStrLen] == ' ')
+								if (std::string_view(label->getString()).back() == ' ')
 								{
-									const auto& secondToLastCharNode = getCharNodePosInfoAtLine(labelStrLen - 1, line, false);
+									const auto& secondToLastCharNode = getCharNodePosInfoAtLine(
+										labelStrLen - 1,
+										line,
+										false
+									);
 									targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
 								}
 								else
-									targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, true).position.x;
+									targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, false).position.x;
 
 								highlightSprite->setContentWidth(std::abs(highlightSprite->getPositionX() - targetXPos));
 
@@ -481,11 +628,28 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 							}
 							else
 							{
-								highlightSprite->setContentWidth(
-									std::abs(
-										highlightSprite->getPositionX() - getCharNodePosInfoAtLine(targetTo, line, to != -1).position.x
-									)
-								);
+								// if selection ends at the end of the current label,
+								// use the right of last character. else set to left of target character
+								if (textLabelInfo.numCharsFromLabelStart == std::string_view(textLabelInfo.label->getString()).length() - 1)
+									highlightSprite->setContentWidth(
+										std::abs(
+											highlightSprite->getPositionX() - getCharNodePosInfoAtLine(
+												textLabelInfo.numCharsFromLabelStart,
+												textLabelInfo.line,
+												false
+											).position.x
+										)
+									);
+								else
+									highlightSprite->setContentWidth(
+										std::abs(
+											highlightSprite->getPositionX() - getCharNodePosInfoAtLine(
+												targetTo,
+												line,
+												true
+											).position.x
+										)
+									);
 
 								hasHighlightedEnd = true;
 							}
@@ -495,13 +659,29 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 					{
 						highlightSprite->setPositionX(getCharNodePosInfoAtLine(0, line, true).position.x);
 
+						// again, check if we're highlighting to the current label or afterwards
 						if (targetTo > labelStrLen)
 						{
+							float targetXPos;
+
+							if (std::string_view(label->getString()).back() == ' ')
+							{
+								const auto& secondToLastCharNode = getCharNodePosInfoAtLine(
+									labelStrLen - 1,
+									line,
+									false
+								);
+								targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
+							}
+							else
+								targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, to != -1).position.x;
+
 							highlightSprite->setContentWidth(
 								std::abs(
-									highlightSprite->getPositionX() - getCharNodePosInfoAtLine(labelStrLen, line, to != -1).position.x
+									highlightSprite->getPositionX() - targetXPos
 								)
 							);
+
 							highlightSprite->setVisible(true);
 						}
 						else
@@ -511,7 +691,17 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 									highlightSprite->getPositionX() - getCharNodePosInfoAtLine(targetTo, line, to != -1).position.x
 								)
 							);
-							highlightSprite->setVisible(true);
+
+							// selecting from a line to the last character in another one in which the last character is space
+							// *and* followed by another line causes the last highlight to become visible
+							highlightSprite->setVisible(
+								std::string_view(
+									static_cast<CCLabelBMFont*>(
+										this->m_textArea->m_label->getChildren()->objectAtIndex(line - 1)
+									)->getString()
+								).back() != ' ' ||
+								getTextLabelInfoFromPos(m_fields->m_highlighted.getToPos()).numCharsFromLabelStart != 0
+							);
 
 							hasHighlightedEnd = true;
 						}
@@ -643,7 +833,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	CharNode getCharNodePosInfo(std::size_t pos, bool isLeftAnchored)
 	{
 		if (pos == -1)
-			pos = m_fields->m_string.length();
+			pos = m_fields->m_string.length() - 1;
 
 		if (this->m_placeholderLabel)
 		{
@@ -671,7 +861,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 
 			for (auto* label : CCArrayExt<CCLabelBMFont*>(this->m_textArea->m_label->getChildren()))
 			{
-				std::size_t labelStringSize = std::string_view(label->getString()).length();
+				std::size_t labelStringSize = std::string_view(label->getString()).length() - 1;
 
 				if (labelStringSize >= pos)
 				{
@@ -679,7 +869,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 					break;
 				}
 
-				pos -= labelStringSize;
+				pos -= labelStringSize + 1;
 			}
 
 			auto charNode = static_cast<CCNode*>(targetLabel->getChildren()->objectAtIndex(pos));
@@ -716,6 +906,10 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		auto targetLabel = static_cast<CCLabelBMFont*>(
 			this->m_textArea->m_label->getChildren()->objectAtIndex(line)
 		);
+
+		if (pos == -1)
+			pos = std::string_view(targetLabel->getString()).length() - 1;
+
 		auto charNode = static_cast<CCNode*>(
 			targetLabel->getChildren()->objectAtIndex(pos)
 		);
@@ -733,6 +927,115 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 			charNodeNodeSpacePos,
 			offset
 		};
+	}
+
+	/**
+	 * @brief Gets info about the label from a certain position
+	 * (line number, distance from beginning of label, from beginning of TextArea, and the label itself)
+	 *
+	 * @param pos
+	 * 
+	 * @return InputNodeTextAreaInfo
+	 */
+	InputNodeTextAreaInfo getTextLabelInfoFromPos(std::size_t pos)
+	{
+		if (pos == -1)
+			pos = m_fields->m_string.length() - 1;
+
+		if (this->m_textArea)
+		{
+			CCLabelBMFont* targetLabel = nullptr;
+			std::size_t targetLabelPos = pos;
+			std::size_t line = 0;
+
+			for (auto* label : CCArrayExt<CCLabelBMFont*>(this->m_textArea->m_label->getChildren()))
+			{
+				const std::size_t labelStrLen = std::string_view(label->getString()).length();
+
+				if (targetLabelPos <= labelStrLen)
+				{
+					targetLabel = label;
+					break;
+				}
+				else
+				{
+					targetLabelPos -= labelStrLen;
+					line++;
+				}
+			}
+
+			return {
+				targetLabel,
+				line,
+				pos,
+				targetLabelPos - 1
+			};
+		}
+
+		return {
+			this->m_placeholderLabel,
+			0,
+			pos,
+			pos
+		};
+	}
+
+	/**
+	 * @brief Sets the internal m_string to `str` while retaining cursor position
+	 * 
+	 * @param str
+	 */
+	void setAndUpdateString(const std::string& str)
+	{
+		// the position is modified in the call to setString
+		const int prevPos = m_fields->m_pos;
+		m_fields->m_string = str;
+
+		CCTextInputNode::setString(str);
+
+		m_fields->m_pos = prevPos;
+	}
+
+	/**
+	 * @brief Since we hook updateBlinkLabelToChar and never call it with the supplied `pos` parameter,
+	 * the only way to set the cursor position is by setting the `m_pos` member manually
+	 * 
+	 * @param pos
+	 */
+	void updateBlinkLabelToCharForced(int pos)
+	{
+		m_fields->m_use_update_blink_pos = true;
+
+		this->updateBlinkLabelToChar(pos);
+
+		m_fields->m_use_update_blink_pos = false;
+	}
+
+	/**
+	 * @brief Hides all the highlight sprites and clears the `m_highlighted` member
+	 */
+	void clearHighlight()
+	{
+		for (auto* highlight : m_fields->m_highlights)
+			highlight->setVisible(false);
+
+		m_fields->m_highlighted.reset();
+	}
+
+	/**
+	 * @brief Deselects an input node and resets its string to the placeholder
+	 */
+	void deselectInput()
+	{
+		if (this->m_placeholderLabel)
+			this->m_placeholderLabel->setString(m_fields->m_placeholder.c_str());
+		else
+			this->m_textArea->setString(m_fields->m_placeholder.c_str());
+
+		showTextOrPlaceholder(true);
+
+		this->onClickTrackNode(false);
+		this->m_cursor->setVisible(false);
 	}
 
 	/**
@@ -870,7 +1173,7 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 			m_fields->m_outermost_input_parent = outermostInputParent;
 		}
 
-		if (static_cast<CCLayer*>(this->getChildren()->lastObject())->getZOrder() > m_fields->m_outermost_input_parent->getZOrder())
+		if (static_cast<CCLayer*>(this->getChildren()->lastObject())->getTouchPriority() > m_fields->m_outermost_input_parent->getTouchPriority())
 			g_selectedInput->deselectInput();
 
 		m_fields->m_previous_scene_children_count = currentChildrenCount;
@@ -904,7 +1207,7 @@ struct BetterCCIMEDispatcher : Modify<BetterCCIMEDispatcher, CCIMEDispatcher>
 	void dispatchInsertText(const char* text, int len, cocos2d::enumKeyCodes keyCode)
 	{
 		if (g_selectedInput)
-			return g_selectedInput->insertCharAtPos(g_selectedInput->getPos(), text[0]);
+			return g_selectedInput->insertCharAtPos(g_selectedInput->getCursorPos(), text[0]);
 
 		CCIMEDispatcher::dispatchInsertText(text, len, keyCode);
 	}
@@ -918,43 +1221,46 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 		GLFWwindow* window,
 		int key,
 		int scancode,
-		// 0 released, 1 clicked, 2 held
 		int action,
 		int mods
 	) {
 		if (!g_selectedInput)
 			return CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
 
-		if (action != 0)
+		// on click, can be held
+		if (action != GLFW_RELEASE)
 		{
+			if (
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+			) {
+				switch (key)
+				{
+					case GLFW_KEY_ESCAPE:
+						g_selectedInput->deselectInput();
+						break;
+
+					case GLFW_KEY_BACKSPACE:
+					case GLFW_KEY_DELETE:
+						g_selectedInput->onDelete(false, key == GLFW_KEY_DELETE);
+						break;
+
+					default:
+						break;
+				}
+			}
+
 			switch (key)
 			{
-				case GLFW_KEY_ESCAPE:
-					g_selectedInput->deselectInput();
-					break;
-
-				case GLFW_KEY_HOME:
-					g_selectedInput->updateBlinkLabelToCharForced(0);
-					break;
-
-				case GLFW_KEY_END:
-					g_selectedInput->updateBlinkLabelToCharForced(-1);
-					break;
-
-				case GLFW_KEY_BACKSPACE:
-				case GLFW_KEY_DELETE:
-					g_selectedInput->onDelete(key == GLFW_KEY_DELETE);
-					break;
-
 				case GLFW_KEY_RIGHT:
-					g_selectedInput->onRightArrow(
+					g_selectedInput->onRightArrowKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
 					break;
 
 				case GLFW_KEY_LEFT:
-					g_selectedInput->onLeftArrow(
+					g_selectedInput->onLeftArrowKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
@@ -966,14 +1272,18 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 		}
 
 		// this is what onGLFWKeyCallback actually does to check for control lol
-		if (action == 1 && BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL))
-		{
+		if (
+			action == GLFW_PRESS &&
+			BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
+			!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+		) {
 			switch (key)
 			{
 				case GLFW_KEY_A:
 					g_selectedInput->highlightFromToPos(0, -1);
 					break;
 
+				case GLFW_KEY_INSERT:
 				case GLFW_KEY_C:
 					g_selectedInput->onCopy();
 					break;
@@ -986,8 +1296,49 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 					g_selectedInput->onCut();
 					break;
 
+				case GLFW_KEY_BACKSPACE:
+				case GLFW_KEY_DELETE:
+					g_selectedInput->onDelete(true, key == GLFW_KEY_DELETE);
+					break;
+
 				default:
 					break;
+			}
+		}
+
+		if (action == GLFW_PRESS)
+		{
+			if (!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL))
+			{
+				switch (key)
+				{
+					case GLFW_KEY_HOME:
+						g_selectedInput->onHomeKey(
+							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						);
+						break;
+
+					case GLFW_KEY_END:
+						g_selectedInput->onEndKey(
+							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						);
+						break;
+
+					default:
+						break;
+				}
+			}
+
+			if (
+				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT) &&
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL)
+			) {
+				switch (key)
+				{
+					case GLFW_KEY_INSERT:
+						g_selectedInput->onPaste();
+						break;
+				}
 			}
 		}
 	}

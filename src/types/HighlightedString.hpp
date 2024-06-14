@@ -45,8 +45,8 @@ struct HighlightedString
 
 	inline constexpr bool isHighlighting() const { return !str.empty(); }
 
-	inline constexpr int getFromPos() const { return m_from == m_og_str.size() ? -1 : m_from; }
-	inline constexpr int getToPos() const { return m_to == m_og_str.size() ? -1 : m_to; }
+	inline constexpr std::size_t getFromPos() const { return m_from; }
+	inline constexpr std::size_t getToPos(bool wrap = true) const { return wrap ? (m_to == m_og_str.size() ? -1 : m_to) : m_to; }
 	inline constexpr std::size_t getLength() const { return str.size(); }
 
 public:
