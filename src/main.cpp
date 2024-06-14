@@ -1387,6 +1387,15 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 #elif defined(GEODE_IS_MACOS)
 
 // handles ctrl and shift
+struct ModifierKeysState
+{
+	bool ctrlDown;
+	bool shiftDown;
+};
+
+static ModifierKeysState g_modifier_keys_state;
+
+// doesnt work. lol!
 struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDispatcher>
 {
 	bool dispatchKeyboardMSG(cocos2d::enumKeyCodes key, bool isKeyDown, bool isKeyRepeat)
@@ -1394,12 +1403,26 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 		if (!g_selectedInput)
 			return CCKeyboardDispatcher::dispatchKeyboardMSG(key, isKeyDown, isKeyRepeat);
 
+		if (key == enumKeyCodes::KEY_LeftControl)
+		{
+			if (isKeyDown || isKeyRepeat)
+				g_modifier_keys_state.ctrlDown = true;
+			else
+				g_modifier_keys_state.ctrlDown = false;
+		}
+
+		if (key == enumKeyCodes::KEY_LeftShift)
+		{
+			if (isKeyDown || isKeyRepeat)
+				g_modifier_keys_state.shiftDown = true;
+			else
+				g_modifier_keys_state.shiftDown = false;
+		}
+
 		if (isKeyDown || isKeyRepeat)
 		{
-			if (
-				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
-				!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
-			) {
+			if (!g_modifier_keys_state.ctrlDown && !g_modifier_keys_state.shiftDown)
+			{
 				switch (key)
 				{
 					case enumKeyCodes::KEY_Escape:
@@ -1408,7 +1431,7 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 
 					case enumKeyCodes::KEY_Backspace:
 					case enumKeyCodes::KEY_Delete:
-						g_selectedInput->onDelete(false, key == GLFW_KEY_DELETE);
+						g_selectedInput->onDelete(false, key == enumKeyCodes::KEY_Delete);
 						break;
 
 					default:
@@ -1420,15 +1443,15 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 			{
 				case enumKeyCodes::KEY_Right:
 					g_selectedInput->onRightArrowKey(
-						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
-						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						g_modifier_keys_state.ctrlDown,
+						g_modifier_keys_state.shiftDown
 					);
 					break;
 
 				case enumKeyCodes::KEY_Left:
 					g_selectedInput->onLeftArrowKey(
-						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
-						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						g_modifier_keys_state.ctrlDown,
+						g_modifier_keys_state.shiftDown
 					);
 					break;
 
@@ -1439,8 +1462,8 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 
 		if (
 			isKeyDown &&
-			BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
-			!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+			g_modifier_keys_state.ctrlDown &&
+			!g_modifier_keys_state.shiftDown
 		) {
 			switch (key)
 			{
@@ -1463,7 +1486,7 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 
 				case enumKeyCodes::KEY_Backspace:
 				case enumKeyCodes::KEY_Delete:
-					g_selectedInput->onDelete(true, key == GLFW_KEY_DELETE);
+					g_selectedInput->onDelete(true, key == enumKeyCodes::KEY_Delete);
 					break;
 
 				default:
@@ -1473,19 +1496,19 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 
 		if (isKeyDown)
 		{
-			if (!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL))
+			if (!g_modifier_keys_state.ctrlDown)
 			{
 				switch (key)
 				{
 					case enumKeyCodes::KEY_Home:
 						g_selectedInput->onHomeKey(
-							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+							g_modifier_keys_state.shiftDown
 						);
 						break;
 
 					case enumKeyCodes::KEY_End:
 						g_selectedInput->onEndKey(
-							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+							g_modifier_keys_state.ctrlDown
 						);
 						break;
 
@@ -1494,10 +1517,8 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 				}
 			}
 
-			if (
-				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT) &&
-				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL)
-			) {
+			if (g_modifier_keys_state.shiftDown && !g_modifier_keys_state.ctrlDown)
+			{
 				switch (key)
 				{
 					case enumKeyCodes::KEY_Insert:

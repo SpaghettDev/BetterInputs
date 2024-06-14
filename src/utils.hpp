@@ -148,13 +148,7 @@ namespace BI
 					return GetKeyState(VK_SHIFT) & 0x8000;
 			}
 #elif defined(GEODE_IS_MACOS)
-			switch (key)
-			{
-				case BI::PlatformKey::LEFT_CONTROL:
-					return cocos2d::CCKeyboardDispatcher::get()->getControlKeyPressed();
-				case BI::PlatformKey::LEFT_SHIFT:
-					return cocos2d::CCKeyboardDispatcher::get()->getShiftKeyPressed();
-			}
+			return false;
 #endif
 		}
 	}
