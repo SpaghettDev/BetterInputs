@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Ctrl+Ins
   - Shift+Ins
 - A TextArea cursor fix. All it does is fix a weird vanilla bug where the cursor is positioned sometimes in the middle of the character
-- Actual MacOS support
+- Actual MacOS support (still broken)
 
 ### Changed
 
