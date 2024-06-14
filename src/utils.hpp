@@ -15,42 +15,48 @@ namespace BI
 	{
 		constexpr std::string_view SEPARATORS = " !@#%&*()-_{}[]\\/?.,:;\"";
 
-		inline std::string insertCharAtIndex(const std::string& str, int pos, char toInsert)
+		inline const std::string& insertCharAtIndex(std::string& str, int pos, char toInsert)
 		{
-			std::string newStr;
-
 			if (str.empty())
 				pos = 0;
 			else if (pos == -1)
 				pos = str.size();
 
-			newStr.reserve(str.size() + 1);
-			newStr.resize(str.size() + 1);
+			std::string curStr{std::move(str)};
 
-			newStr = str;
+			if (curStr.capacity() < curStr.size() + 1)
+			{
+				curStr.reserve(curStr.size() * 2);
+				curStr.resize(curStr.size());
+			}
 
-			newStr.insert(pos, 1, toInsert);
+			str = std::move(curStr);
 
-			return newStr;
+			str.insert(pos, 1, toInsert);
+
+			return str;
 		}
 
-		inline std::string insertStrAtIndex(const std::string& str, int pos, const std::string_view toInsert)
+		inline const std::string& insertStrAtIndex(std::string& str, int pos, const std::string_view toInsert)
 		{
-			std::string newStr;
-
 			if (str.empty())
 				pos = 0;
 			else if (pos == -1)
 				pos = str.size();
 
-			newStr.reserve(str.size() + toInsert.size());
-			newStr.resize(str.size() + toInsert.size());
+			std::string curStr{std::move(str)};
 
-			newStr = str;
+			if (curStr.capacity() < curStr.size() + toInsert.size())
+			{
+				str.reserve((curStr.size() + toInsert.size()) * 2);
+				str.resize(curStr.size() + toInsert.size());
+			}
 
-			newStr.insert(pos, toInsert);
+			str = std::move(curStr);
 
-			return newStr;
+			str.insert(pos, toInsert);
+
+			return str;
 		}
 
 
@@ -63,7 +69,12 @@ namespace BI
 
 			std::size_t sepPos = str.find_first_of(SEPARATORS);
 
-			return sepPos == std::string_view::npos ? -1 : (pos + sepPos + 1);
+			// | is the pos
+			// example|.com -> example.|com
+			if (pos + sepPos == pos)
+				return pos + 1;
+
+			return sepPos == std::string_view::npos ? -1 : (pos + sepPos);
 		}
 
 		inline int findPreviousSeparator(std::string_view str, int pos)
@@ -77,7 +88,12 @@ namespace BI
 
 			std::size_t sepPos = reversedString.find_first_of(SEPARATORS);
 
-			return sepPos == std::string::npos ? 0 : (str.size() - sepPos - 1);
+			// | is the pos
+			// example.|com -> example|.com
+			if (str.size() - sepPos == pos)
+				return pos - 1;
+
+			return sepPos == std::string::npos ? 0 : (str.size() - sepPos);
 		}
 	}
 
