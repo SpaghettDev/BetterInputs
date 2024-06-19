@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v4.1.0-beta] - 2024-06-19
+
+### Changed
+
+- How the AlertFix works, again... Checks for touch priority if the layer has a touch priority, if not then it falls back to Z order (it was also causing a crash in `LevelEditLayer`)
+
+### Fixed
+
+- Crash in level editor
+- Space character weirdness in `CCTextInputNode`s with `CCLabelBMFont`s
+
 ## [v4.0.0-beta] - 2024-06-13
 
 ### Added
@@ -15,7 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Ctrl+Ins
   - Shift+Ins
 - A TextArea cursor fix. All it does is fix a weird vanilla bug where the cursor is positioned sometimes in the middle of the character
-- Actual MacOS support (still broken)
+- Actual MacOS support (still broken, binary included but will do nothing, in fact it will break input nodes :trollface:)
 
 ### Changed
 
@@ -24,7 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- Numerous text selection bugs in TextAreas
+- Numerous text selection bugs in `TextArea`s
 - Ctrl+Left/Right arrow not positioning cursor correctly (skipping to the character before/after the separator)
 - A lot of other bugs
 
@@ -59,7 +70,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- CCTextInputNode swallowing ESC key of Alerts/Layers above it
+- `CCTextInputNode` swallowing ESC key of Alerts/Layers above it
 - `m_string` not getting updated when `CCTextInputNode::setString` is called
 
 ## [2.1.0-beta] - 2024-06-01
@@ -72,43 +83,43 @@ Robert where update 👀
 
 ### Fixed
 
-- Text being inserted somewhere completely wrong in TextAreas when highlighting
-- Cursor also being positioned somewhere wrong in TextAreas when highlighting
+- Text being inserted somewhere completely wrong in `TextArea`s when highlighting
+- Cursor also being positioned somewhere wrong in `TextArea`s when highlighting
 
 ### Changed
 
-- Moved helper types into /src/types folder
+- Moved helper types into `/src/types` folder
 
 ## [2.0.0-beta] - 2024-05-31
 
 ### Fixed
 
-- Everything (TextArea selection bugs, TextArea highlight sprite going everywhere, and much, much more)
+- Everything (`TextArea` selection bugs, `TextArea` highlight sprite going everywhere, and much, much more)
 
 ## [1.4.0] - 2024-05-30
 
 ### Fixed
 
-- Cursor position funkiness in TextAreas and regular CCTextInputNodes, again
-- Cursor position not getting set when using mouse in TextAreas
+- Cursor position funkiness in `TextArea`s and regular `CCTextInputNode`s, again
+- Cursor position not getting set when using mouse in `TextArea`s
 
 ## [1.3.2] - 2024-05-28
 
 ### Fixed
 
-- Cursor position funkiness in TextAreas and regular CCTextInputNodes
+- Cursor position funkiness in `TextArea`s and regular `CCTextInputNode`s
 
 ## [1.3.1] - 2024-05-27
 
 ### Fixed
 
-- More TextArea selection bugs
+- More `TextArea` selection bugs
 
 ## [1.3.0] - 2024-05-27
 
 ### Fixed
 
-- TextArea selection
+- `TextArea` selection
 
 ## [1.2.0] - 2024-05-26
 

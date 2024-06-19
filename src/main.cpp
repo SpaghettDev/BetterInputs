@@ -6,6 +6,7 @@
 
 #ifdef GEODE_IS_WINDOWS
 #include <Geode/modify/CCEGLView.hpp>
+#include <Geode/cocos/robtop/glfw/glfw3.h>
 #elif defined(GEODE_IS_MACOS)
 #include <Geode/modify/CCKeyboardDispatcher.hpp>
 #include <Geode/modify/CCTouchDispatcher.hpp>
@@ -15,8 +16,6 @@
 
 #include <Geode/modify/CCTextFieldTTF.hpp>
 #include <Geode/modify/CCScene.hpp>
-
-#include <Geode/cocos/robtop/glfw/glfw3.h>
 
 #include "types/HighlightedString.hpp"
 #include "types/CharNode.hpp"
@@ -44,15 +43,10 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		std::vector<cocos2d::extension::CCScale9Sprite*> m_highlights;
 
 		bool m_use_update_blink_pos = false;
-		bool m_get_text_field_str = false;
-
-		std::string m_placeholder;
 	};
 
 	bool init(float p0, float p1, char const* p2, char const* p3, int p4, char const* p5)
 	{
-		m_fields->m_placeholder = p2;
-
 		if (!CCTextInputNode::init(p0, p1, p2, p3, p4, p5)) return false;
 
 		appendHighlightNode();
@@ -63,16 +57,6 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	bool onTextFieldAttachWithIME(cocos2d::CCTextFieldTTF* tField)
 	{
 		g_selectedInput = this;
-
-		// get the current string if the input node already has something (other than the placeholder obviously)
-		// TODO: move to somewhere else
-		m_fields->m_get_text_field_str = true;
-		if (
-			const auto textFieldStr = this->m_textField->getString();
-			m_fields->m_string.empty() && textFieldStr != m_fields->m_string
-		)
-			m_fields->m_string = textFieldStr;
-		m_fields->m_get_text_field_str = false;
 
 		return CCTextInputNode::onTextFieldAttachWithIME(tField);
 	}
@@ -543,11 +527,26 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		if (this->m_placeholderLabel)
 		{
 			m_fields->m_highlights[0]->setPositionX(getCharNodePosInfo(from, true).position.x - 1.f);
+
+			float targetXPos;
+			if (m_fields->m_string[to == -1 ? m_fields->m_string.length() - 1 : to] == ' ')
+			{
+				const auto& secondToLastCharNode = getCharNodePosInfo(
+					(to == -1 ? m_fields->m_string.length() - 1 : to) - 1,
+					false
+				);
+
+				targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
+			}
+			else
+				targetXPos = getCharNodePosInfo(to, to != -1).position.x;
+
 			m_fields->m_highlights[0]->setContentWidth(
 				std::abs(
-					m_fields->m_highlights[0]->getPositionX() - getCharNodePosInfo(to, to != -1).position.x
+					m_fields->m_highlights[0]->getPositionX() - targetXPos
 				)
 			);
+
 			m_fields->m_highlights[0]->setScaleY(
 				3.f * this->m_placeholderLabel->getScale() + .4f
 			);
@@ -1001,6 +1000,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		CCTextInputNode::setString(str);
 
 		m_fields->m_pos = prevPos;
+
+		if (str.empty())
+			onStringEmpty();
 	}
 
 	/**
@@ -1034,11 +1036,6 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	 */
 	void deselectInput()
 	{
-		if (this->m_placeholderLabel)
-			this->m_placeholderLabel->setString(m_fields->m_placeholder.c_str());
-		else
-			this->m_textArea->setString(m_fields->m_placeholder.c_str());
-
 		showTextOrPlaceholder(true);
 
 		this->onClickTrackNode(false);
@@ -1062,7 +1059,7 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		);
 		highlight->setAnchorPoint({ .0f, .5f });
 		highlight->setVisible(false);
-		highlight->setID(fmt::format(GEODE_MOD_ID "/highlight-sprite-{}", m_fields->m_highlights.size() + 1));
+		highlight->setID(fmt::format("highlight-sprite-{}"_spr, m_fields->m_highlights.size() + 1));
 		this->addChild(highlight, 10);
 
 		m_fields->m_highlights.emplace_back(highlight);
@@ -1133,7 +1130,7 @@ struct BetterCCTextFieldTTF : Modify<BetterCCTextFieldTTF, CCTextFieldTTF>
 {
 	const char* getString()
 	{
-		if (g_selectedInput && !g_selectedInput->m_fields->m_get_text_field_str)
+		if (g_selectedInput)
 			return g_selectedInput->m_fields->m_string.c_str();
 
 		return CCTextFieldTTF::getString();
@@ -1164,8 +1161,14 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 	{
 		const std::size_t currentChildrenCount = this->getChildrenCount();
 
+		if (!g_selectedInput)
+		{
+			m_fields->m_outermost_input_parent = nullptr;
+			m_fields->m_previous_scene_children_count = currentChildrenCount;
+			return;
+		}
+
 		if (
-			!g_selectedInput ||
 			currentChildrenCount == 1 ||
 			currentChildrenCount == m_fields->m_previous_scene_children_count
 		)
@@ -1180,7 +1183,17 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 			m_fields->m_outermost_input_parent = outermostInputParent;
 		}
 
-		if (static_cast<CCLayer*>(this->getChildren()->lastObject())->getTouchPriority() > m_fields->m_outermost_input_parent->getTouchPriority())
+		auto* lastLayer = static_cast<CCLayer*>(this->getChildren()->lastObject());
+
+		if (
+			const int lastLayerTouchPrio = lastLayer->getTouchPriority();
+			lastLayerTouchPrio != 0 &&
+			lastLayerTouchPrio < CCTouchDispatcher::get()->findHandler(
+				static_cast<CCTouchDelegate*>(g_selectedInput)
+			)->getPriority()
+		)
+			g_selectedInput->deselectInput();
+		else if (lastLayer->getZOrder() > m_fields->m_outermost_input_parent->getZOrder())
 			g_selectedInput->deselectInput();
 
 		m_fields->m_previous_scene_children_count = currentChildrenCount;
