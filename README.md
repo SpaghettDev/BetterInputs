@@ -8,6 +8,8 @@ Brings Windows-like input options to `CCTextInputNode`s.
 - Better text input™️
 - Ctrl+A, Ctrl + Left/Right Arrow, Shift + Left/Right Arrow, Home, End and a bunch more hotkeys
 - Esc to deselect an input node
+- Ability to bypass character filter (can be disabled)
+- Ability to bypass max input length (can be disabled)
 
 ## Image
 

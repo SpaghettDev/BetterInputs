@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [v4.1.0-beta] - 2024-06-19
 
+### Added
+
+- Ability to bypass max input length (can be disabled)
+
 ### Changed
 
 - How the AlertFix works, again... Checks for touch priority if the layer has a touch priority, if not then it falls back to Z order (it was also causing a crash in `LevelEditLayer`)
@@ -14,7 +18,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - Crash in level editor
+- Pasting text bypassing allowed characters filter
 - Space character weirdness in `CCTextInputNode`s with `CCLabelBMFont`s
+- More crashes! (when highlighting text)
 
 ## [v4.0.0-beta] - 2024-06-13
 

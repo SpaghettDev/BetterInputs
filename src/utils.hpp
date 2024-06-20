@@ -153,22 +153,6 @@ namespace BI
 		}
 	}
 
-	namespace gd
-	{
-		inline bool isVanillaInput()
-		{
-			return true;
-// 			std::uintptr_t readMemory;
-
-// #ifdef GEODE_IS_WINDOWS
-// 			std::memcpy(&readMemory, reinterpret_cast<void*>(geode::base::get() + 0x2F974), 1);
-// #elif defined(GEODE_IS_MACOS)
-// 			std::memcpy(&readMemory, reinterpret_cast<void*>(geode::base::get() + 0x2F974), 1);
-// #endif
-// 			return readMemory == 0x0475;
-		}
-	}
-
 	namespace geode
 	{
 		template<typename T>

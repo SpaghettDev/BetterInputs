@@ -104,10 +104,6 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 		// a space or not, which we fix below (i think CCTextInputNode is very ass)
 		if (m_fields->m_string.length() >= 2)
 		{
-			// ???
-			if (m_fields->m_pos > m_fields->m_string.length() - 1)
-				m_fields->m_pos = -1;
-
 			// what's to the right of the cursor
 			int pos = m_fields->m_pos == -1 ? m_fields->m_string.length() - 1 : m_fields->m_pos;
 			const auto& cursorTextLabelInfo = getTextLabelInfoFromPos(m_fields->m_pos);
@@ -731,9 +727,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	{
 		if (
 			!BI::geode::get<bool>("allow-any-character") &&
-			BI::gd::isVanillaInput() &&
 			std::string_view(this->m_allowedChars).find(character) == std::string_view::npos
-			) return;
+		)
+			return;
 
 		const bool wasHighlighting = m_fields->m_highlighted.isHighlighting();
 
@@ -994,8 +990,29 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	void setAndUpdateString(const std::string& str)
 	{
 		// the position is modified in the call to setString
-		const int prevPos = m_fields->m_pos;
+		int prevPos = m_fields->m_pos;
 		m_fields->m_string = str;
+
+		if (!BI::geode::get<bool>("allow-any-character"))
+			std::erase_if(
+				m_fields->m_string,
+				[&](char c) -> bool {
+					return std::string_view(this->m_allowedChars).find(c) == std::string_view::npos;
+				}
+			);
+
+		if (
+			!BI::geode::get<bool>("bypass-length-check") &&
+			this->m_maxLabelLength != 0 &&
+			m_fields->m_string.length() >= this->m_maxLabelLength
+		) {
+			m_fields->m_string = m_fields->m_string.substr(0, this->m_maxLabelLength);
+			m_fields->m_string.resize(this->m_maxLabelLength);
+
+			// sorry...
+			if (m_fields->m_pos >= m_fields->m_string.length())
+				prevPos = -1;
+		}
 
 		CCTextInputNode::setString(str);
 
@@ -1014,6 +1031,9 @@ struct BetterTextInputNode : Modify<BetterTextInputNode, CCTextInputNode>
 	void updateBlinkLabelToCharForced(int pos)
 	{
 		m_fields->m_use_update_blink_pos = true;
+
+		if (pos >= m_fields->m_string.length())
+			pos = -1;
 
 		this->updateBlinkLabelToChar(pos);
 
