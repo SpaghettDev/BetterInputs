@@ -1385,6 +1385,14 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 						break;
 				}
 			}
+
+      if (
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT) &&
+				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
+				key == GLFW_KEY_ENTER
+			) {
+				return CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
+			}
 		}
 	}
 
