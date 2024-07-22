@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v4.2.0-beta.1] - 2024-07-22
+
+### Changed
+
+- Target Geode version (v3.0.0-beta.2 -> v3.3.0)
+
+### Fixed
+
+- Incompatibility with Enter Search mod (#5) - Thanks @iswilljr
+
 ## [v4.1.0-beta] - 2024-06-19
 
 ### Added
