@@ -1,9 +1,9 @@
 {
-    "geode": "3.0.0-beta.2",
+    "geode": "3.3.0",
     "gd": {
         "win": "2.206"
     },
-    "version": "v4.1.0-beta",
+    "version": "v4.2.0",
     "id": "spaghettdev.betterinputs",
     "name": "BetterInputs",
     "developer": "SpaghettDev",
