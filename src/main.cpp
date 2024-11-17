@@ -1204,13 +1204,13 @@ struct AlertLayerFix : Modify<AlertLayerFix, CCScene>
 		}
 
 		auto* lastLayer = static_cast<CCLayer*>(this->getChildren()->lastObject());
+		const int lastLayerTouchPrio = lastLayer->getTouchPriority();
 
 		if (
-			const int lastLayerTouchPrio = lastLayer->getTouchPriority();
+			auto handler = CCTouchDispatcher::get()->findHandler(static_cast<CCTouchDelegate*>(g_selectedInput));
+			handler &&
 			lastLayerTouchPrio != 0 &&
-			lastLayerTouchPrio < CCTouchDispatcher::get()->findHandler(
-				static_cast<CCTouchDelegate*>(g_selectedInput)
-			)->getPriority()
+			lastLayerTouchPrio < handler->getPriority()
 		)
 			g_selectedInput->deselectInput();
 		else if (lastLayer->getZOrder() > m_fields->m_outermost_input_parent->getZOrder())

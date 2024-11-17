@@ -31,6 +31,7 @@ jobs:
           bindings-ref: main
           combine: true
           target: ${{ matrix.config.target }}
+          build-args: '--parallel 16'
 
   package:
     name: Package builds
@@ -41,7 +42,7 @@ jobs:
       - uses: geode-sdk/build-geode-mod/combine@main
         id: build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: Build Output
           path: ${{ steps.build.outputs.build-output }}
