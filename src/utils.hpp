@@ -5,11 +5,6 @@
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
 #include <WinUser.h> // virtual keys
-#elif defined(GEODE_IS_MACOS)
-#define CommentType CommentTypeDummy
-#import <Cocoa/Cocoa.h>
-#include <AppKit/NSEvent.h>
-#undef CommentType
 #endif
 
 #include <Geode/cocos/cocoa/CCGeometry.h>
@@ -151,19 +146,6 @@ namespace BI
 					return GetKeyState(VK_CONTROL) & 0x8000;
 				case BI::PlatformKey::LEFT_SHIFT:
 					return GetKeyState(VK_SHIFT) & 0x8000;
-			}
-
-			return false;
-		}
-#elif defined(GEODE_IS_MACOS)
-		inline bool keyDown(PlatformKey key, NSEvent* event)
-		{
-			switch (key)
-			{
-				case BI::PlatformKey::LEFT_CONTROL:
-					return ([event modifierFlags] & NSCommandKeyMask);
-				case BI::PlatformKey::LEFT_SHIFT:
-					return ([event modifierFlags] & NSShiftKeyMask);
 			}
 
 			return false;

@@ -10,14 +10,31 @@
 #import <Geode/cocos/platform/mac/EAGLView.h>
 #import <objc/runtime.h>
 
+#include "BetterTextInputNode.hpp"
+
 #include "types/TouchMessageType.hpp"
+#include "utils.hpp"
+
+namespace BI::platform
+{
+	inline bool keyDown(PlatformKey key, NSEvent* event)
+	{
+		switch (key)
+		{
+			case BI::PlatformKey::LEFT_CONTROL:
+				return ([event modifierFlags] & NSCommandKeyMask);
+			case BI::PlatformKey::LEFT_SHIFT:
+				return ([event modifierFlags] & NSShiftKeyMask);
+		}
+
+		return false;
+	}
+}
 
 #define HOOK_OBJC_METHOD(klass, cleanFuncName, funcName) \
 	auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(#klass), @selector(funcName)); \
 	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
 	method_setImplementation(cleanFuncName ## Method, (EventType<klass>)&funcName);
-
-#define CALL_OIMP(funcName) reinterpret_cast<decltype(&funcName)>(funcName ## OIMP)(self, sel, event)
 
 template <typename T>
 using EventType = void(*)(T*, SEL, NSEvent*);
@@ -26,7 +43,7 @@ using EventType = void(*)(T*, SEL, NSEvent*);
 static EventType<EAGLView> keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
-		CALL_OIMP(keyDownExec);
+		keyDownExecOIMP(self, sel, event);
 
 	// on click, can be held
 	if (
@@ -140,7 +157,7 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 			!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
 			[event keyCode] == kVK_Return
 		) {
-			CALL_OIMP(keyDownExec);
+			keyDownExec(self, sel, event);
 		}
 	}
 }
@@ -148,29 +165,29 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 static EventType<EAGLView> keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
-		CALL_OIMP(keyUpExec);
+		keyUpExec(self, sel, event);
 }
 
 
 // TODO: move to hooking mouseDownExec
 // handles mouse clicks
-struct BetterTouchDispatcher : Modify<BetterTouchDispatcher, CCTouchDispatcher>
+struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCTouchDispatcher>
 {
 	// https://github.com/ninXout/Crystal-Client/blob/7df5a8336ccb852bc984e55dd29ca27bb1741443/src/ImGui/ImGui.cpp#L96
 	void touches(cocos2d::CCSet* touches, cocos2d::CCEvent* event, unsigned int type)
 	{
 		if (!g_selectedInput)
-			return CCTouchDispatcher::touches(touches, event, type);
+			return cocos2d::CCTouchDispatcher::touches(touches, event, type);
 
-		auto* touch = static_cast<CCTouch*>(touches->anyObject());
+		auto* touch = static_cast<cocos2d::CCTouch*>(touches->anyObject());
 		const auto touchPos = touch->getLocation();
 
 		if (type == TouchMessageType::Began)
 		{
-			CCSize winSize = CCDirector::sharedDirector()->getWinSize();
+			CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 
 			// the touch event's origin is bottom left
-			CCTouch touch{};
+			cocos2d::CCTouch touch{};
 			touch.setTouchInfo(0, touchPos.x, winSize.height - touchPos.y);
 
 			g_selectedInput->useUpdateBlinkPos(true);
