@@ -6,7 +6,10 @@
 
 #include <WinUser.h> // virtual keys
 #elif defined(GEODE_IS_MACOS)
+#define CommentType CommentTypeDummy
+#import <Cocoa/Cocoa.h>
 #include <AppKit/NSEvent.h>
+#undef CommentType
 #endif
 
 #include <Geode/cocos/cocoa/CCGeometry.h>
