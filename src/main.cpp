@@ -8,8 +8,15 @@
 #include <Geode/modify/CCEGLView.hpp>
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 #elif defined(GEODE_IS_MACOS)
-#include <Geode/modify/CCKeyboardDispatcher.hpp>
-#include <Geode/modify/CCTouchDispatcher.hpp>
+#define CommentType CommentTypeDummy
+#import <Foundation/Foundation.h>
+#import <Cocoa/Cocoa.h>
+#import <CoreGraphics/CoreGraphics.h>
+#undef CommentType
+
+#include <Geode/cocos/platform/mac/CCEventDispatcher.h>
+#import <Geode/cocos/platform/mac/EAGLView.h>
+#import <objc/runtime.h>
 
 #include "types/TouchMessageType.hpp"
 #endif
@@ -1427,72 +1434,121 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 
 #elif defined(GEODE_IS_MACOS)
 
-// handles ctrl and shift
-struct ModifierKeysState
-{
-	bool ctrlDown;
-	bool shiftDown;
-};
+#define HOOK_OBJC_METHOD(klass, cleanFuncName, funcName) \
+	auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(#klass), @selector(funcName)); \
+	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
+	method_setImplementation(cleanFuncName ## Method, (EventType<klass>)&funcName);
 
-static ModifierKeysState g_modifier_keys_state;
+#define CALL_OIMP(funcName) reinterpret_cast<decltype(&funcName)>(funcName ## OIMP)(self, sel, event)
 
-// doesnt work. lol!
-struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDispatcher>
-{
-	bool dispatchKeyboardMSG(cocos2d::enumKeyCodes key, bool isKeyDown, bool isKeyRepeat)
+template <typename T>
+using EventType = void(*)(T*, SEL, NSEvent*);
+
+
+static EventType<EAGLView> keyDownExecOIMP;
+void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
+	if (!g_selectedInput)
+		CALL_OIMP(keyDownExec);
+
+	// on click, can be held
+	if (
+		!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
+		!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+	) {
+		switch ([event keyCode])
+		{
+			case kVK_Escape:
+				g_selectedInput->deselectInput();
+				break;
+
+			case kVK_Delete:
+			case kVK_ForwardDelete:
+				g_selectedInput->onDelete(false, [event keyCode] == kVK_ForwardDelete);
+				break;
+
+			default:
+				break;
+		}
+	}
+
+	switch ([event keyCode])
 	{
-		if (!g_selectedInput)
-			return CCKeyboardDispatcher::dispatchKeyboardMSG(key, isKeyDown, isKeyRepeat);
+		case kVK_RightArrow:
+			g_selectedInput->onRightArrowKey(
+				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
+				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+			);
+			break;
 
-		if (key == enumKeyCodes::KEY_LeftControl)
+		case kVK_LeftArrow:
+			g_selectedInput->onLeftArrowKey(
+				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
+				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+			);
+			break;
+
+		default:
+			break;
+	}
+
+	if (
+		![event isARepeat] &&
+		!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
+		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+	) {
+		int code = [[event characters] length] > 0
+			? [[event characters] characterAtIndex:0];
+			: [[event charactersIgnoringModifiers] characterAtIndex:0];
+
+		switch ([event keyCode])
 		{
-			if (isKeyDown || isKeyRepeat)
-				g_modifier_keys_state.ctrlDown = true;
-			else
-				g_modifier_keys_state.ctrlDown = false;
+			case kVK_Delete:
+			case kVK_ForwardDelete:
+				g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
+				break;
+
+			default:
+				break;
 		}
 
-		if (key == enumKeyCodes::KEY_LeftShift)
+		switch (code)
 		{
-			if (isKeyDown || isKeyRepeat)
-				g_modifier_keys_state.shiftDown = true;
-			else
-				g_modifier_keys_state.shiftDown = false;
+			case 'a': case 'A':
+				g_selectedInput->highlightFromToPos(0, -1);
+				break;
+
+			case 'c': case 'C':
+				g_selectedInput->onCopy();
+				break;
+
+			case 'v': case 'V':
+				g_selectedInput->onPaste();
+				break;
+
+			case 'x': case 'X':
+				g_selectedInput->onCut();
+				break;
+
+			default:
+				break;
 		}
+	}
 
-		if (isKeyDown || isKeyRepeat)
+	if (![event isARepeat])
+	{
+		if (!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event))
 		{
-			if (!g_modifier_keys_state.ctrlDown && !g_modifier_keys_state.shiftDown)
+			switch ([event keyCode])
 			{
-				switch (key)
-				{
-					case enumKeyCodes::KEY_Escape:
-						g_selectedInput->deselectInput();
-						break;
-
-					case enumKeyCodes::KEY_Backspace:
-					case enumKeyCodes::KEY_Delete:
-						g_selectedInput->onDelete(false, key == enumKeyCodes::KEY_Delete);
-						break;
-
-					default:
-						break;
-				}
-			}
-
-			switch (key)
-			{
-				case enumKeyCodes::KEY_Right:
-					g_selectedInput->onRightArrowKey(
-						g_modifier_keys_state.ctrlDown,
-						g_modifier_keys_state.shiftDown
+				case kVK_Home:
+					g_selectedInput->onHomeKey(
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 					);
 					break;
 
-				case enumKeyCodes::KEY_Left:
-					g_selectedInput->onLeftArrowKey(
-						g_modifier_keys_state.ctrlDown,
-						g_modifier_keys_state.shiftDown
+				case kVK_End:
+					g_selectedInput->onEndKey(
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
 					break;
 
@@ -1502,80 +1558,23 @@ struct BetterKeyboardDispatcher : Modify<BetterKeyboardDispatcher, CCKeyboardDis
 		}
 
 		if (
-			isKeyDown &&
-			g_modifier_keys_state.ctrlDown &&
-			!g_modifier_keys_state.shiftDown
+			!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event) &&
+			!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
+			[event keyCode] == kVK_Return
 		) {
-			switch (key)
-			{
-				case enumKeyCodes::KEY_A:
-					g_selectedInput->highlightFromToPos(0, -1);
-					break;
-
-				case enumKeyCodes::KEY_Insert:
-				case enumKeyCodes::KEY_C:
-					g_selectedInput->onCopy();
-					break;
-
-				case enumKeyCodes::KEY_V:
-					g_selectedInput->onPaste();
-					break;
-
-				case enumKeyCodes::KEY_X:
-					g_selectedInput->onCut();
-					break;
-
-				case enumKeyCodes::KEY_Backspace:
-				case enumKeyCodes::KEY_Delete:
-					g_selectedInput->onDelete(true, key == enumKeyCodes::KEY_Delete);
-					break;
-
-				default:
-					break;
-			}
+			CALL_OIMP(keyDownExec);
 		}
-
-		if (isKeyDown)
-		{
-			if (!g_modifier_keys_state.ctrlDown)
-			{
-				switch (key)
-				{
-					case enumKeyCodes::KEY_Home:
-						g_selectedInput->onHomeKey(
-							g_modifier_keys_state.shiftDown
-						);
-						break;
-
-					case enumKeyCodes::KEY_End:
-						g_selectedInput->onEndKey(
-							g_modifier_keys_state.ctrlDown
-						);
-						break;
-
-					default:
-						break;
-				}
-			}
-
-			if (g_modifier_keys_state.shiftDown && !g_modifier_keys_state.ctrlDown)
-			{
-				switch (key)
-				{
-					case enumKeyCodes::KEY_Insert:
-						g_selectedInput->onPaste();
-						break;
-
-					default:
-						break;
-				}
-			}
-		}
-
-		return false;
 	}
-};
+}
 
+static EventType<EAGLView> keyUpExecOIMP;
+void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
+	if (!g_selectedInput)
+		CALL_OIMP(keyUpExec);
+}
+
+
+// TODO: move to hooking mouseDownExec
 // handles mouse clicks
 struct BetterTouchDispatcher : Modify<BetterTouchDispatcher, CCTouchDispatcher>
 {
@@ -1605,5 +1604,12 @@ struct BetterTouchDispatcher : Modify<BetterTouchDispatcher, CCTouchDispatcher>
 			g_selectedInput->useUpdateBlinkPos(false);
 	}
 };
+
+
+$on_mod(Loaded)
+{
+	HOOK_OBJC_METHOD(EAGLView, keyDownExec, keyDownExec:);
+	HOOK_OBJC_METHOD(EAGLView, keyUpExec, keyUpExec:);
+}
 
 #endif

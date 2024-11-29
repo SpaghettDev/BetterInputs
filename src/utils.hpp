@@ -1,10 +1,12 @@
 #include <string>
 #include <string_view>
 
+#ifdef GEODE_IS_WINDOWS
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
-#ifdef GEODE_IS_WINDOWS
 #include <WinUser.h> // virtual keys
+#elif defined(GEODE_IS_MACOS)
+#include <AppKit/NSEvent.h>
 #endif
 
 #include <Geode/cocos/cocoa/CCGeometry.h>
@@ -137,9 +139,9 @@ namespace BI
 	};
 	namespace platform
 	{
+#ifdef GEODE_IS_WINDOWS
 		inline bool keyDown(PlatformKey key)
 		{
-#ifdef GEODE_IS_WINDOWS
 			switch (key)
 			{
 				case BI::PlatformKey::LEFT_CONTROL:
@@ -147,10 +149,23 @@ namespace BI
 				case BI::PlatformKey::LEFT_SHIFT:
 					return GetKeyState(VK_SHIFT) & 0x8000;
 			}
-#elif defined(GEODE_IS_MACOS)
+
 			return false;
-#endif
 		}
+#elif defined(GEODE_IS_MACOS)
+		inline bool keyDown(PlatformKey key, NSEvent* event)
+		{
+			switch (key)
+			{
+				case BI::PlatformKey::LEFT_CONTROL:
+					return ([event modifierFlags] & NSCommandKeyMask);
+				case BI::PlatformKey::LEFT_SHIFT:
+					return ([event modifierFlags] & NSShiftKeyMask);
+			}
+
+			return false;
+		}
+#endif
 	}
 
 	namespace geode
