@@ -6,9 +6,25 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 project(BetterInputs VERSION 1.0.0)
 
-add_library(${PROJECT_NAME} SHARED
-    src/main.cpp
+set(SRC_DIR "${PROJECT_SOURCE_DIR}/src")
+
+file(GLOB_RECURSE SRC_FILES
+    "${SRC_DIR}/hooks/*.cpp"
 )
+set(SRC_FILES ${SRC_FILES}
+    ${SRC_DIR}/BetterTextInputNode.cpp
+)
+
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    set(SRC_FILES ${SRC_FILES} src/macos.mm)
+    set_source_files_properties(src/macos.mm PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    set(SRC_FILES ${SRC_FILES} src/windows.cpp)
+else()
+    message(FATAL_ERROR "Unsupported mod platform!")
+endif()
+
+add_library(${PROJECT_NAME} MODULE "${SRC_FILES}")
 
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
