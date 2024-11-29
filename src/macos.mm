@@ -22,25 +22,24 @@ namespace BI::platform
 		switch (key)
 		{
 			case BI::PlatformKey::LEFT_CONTROL:
-				return ([event modifierFlags] & NSCommandKeyMask);
+				return [event modifierFlags] & NSCommandKeyMask;
 			case BI::PlatformKey::LEFT_SHIFT:
-				return ([event modifierFlags] & NSShiftKeyMask);
+				return [event modifierFlags] & NSShiftKeyMask;
 		}
 
 		return false;
 	}
 }
 
-#define HOOK_OBJC_METHOD(klass, cleanFuncName, funcName) \
-	auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(#klass), @selector(funcName)); \
+#define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
+	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
 	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
-	method_setImplementation(cleanFuncName ## Method, (EventType<klass>)&funcName);
+	method_setImplementation(cleanFuncName ## Method, (type)&funcName);
 
-template <typename T>
-using EventType = void(*)(T*, SEL, NSEvent*);
+using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
 
 
-static EventType<EAGLView> keyDownExecOIMP;
+static KeyEventType keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
 		keyDownExecOIMP(self, sel, event);
@@ -91,10 +90,6 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 		!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
 		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 	) {
-		int code = [[event characters] length] > 0
-			? [[event characters] characterAtIndex:0];
-			: [[event charactersIgnoringModifiers] characterAtIndex:0];
-
 		switch ([event keyCode])
 		{
 			case kVK_Delete:
@@ -104,6 +99,26 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 
 			default:
 				break;
+		}
+
+		/*
+		int code = [[event characters] length] > 0
+			? [[event characters] characterAtIndex:0]
+			: [[event charactersIgnoringModifiers] length] > 0
+				? [[event charactersIgnoringModifiers] characterAtIndex:0]
+				: 0;
+		*/
+
+		int code = 0;
+		{
+			NSString* s = [event characters];
+			code = [s length] > 0 ? [s characterAtIndex:0] : 0;
+
+			if (code == 0)
+			{
+				s = [event charactersIgnoringModifiers];
+				code = [s length] > 0 ? [s characterAtIndex:0] : 0;
+			}
 		}
 
 		switch (code)
@@ -143,7 +158,7 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 
 				case kVK_End:
 					g_selectedInput->onEndKey(
-						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 					);
 					break;
 
@@ -162,7 +177,7 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	}
 }
 
-static EventType<EAGLView> keyUpExecOIMP;
+static KeyEventType keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
 		keyUpExec(self, sel, event);
@@ -203,8 +218,10 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 
 $on_mod(Loaded)
 {
-	HOOK_OBJC_METHOD(EAGLView, keyDownExec, keyDownExec:);
-	HOOK_OBJC_METHOD(EAGLView, keyUpExec, keyUpExec:);
+	auto eaglView = objc_getClass("EAGLView");
+
+	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyDownExec, keyDownExec:);
+	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyUpExec, keyUpExec:);
 }
 
 #endif

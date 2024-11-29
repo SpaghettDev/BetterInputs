@@ -16,10 +16,10 @@ set(SRC_FILES ${SRC_FILES}
 )
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    set(SRC_FILES ${SRC_FILES} src/macos.mm)
-    set_source_files_properties(src/macos.mm PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set(SRC_FILES ${SRC_FILES} ${SRC_DIR}/macos.mm)
+    set_source_files_properties(${SRC_DIR}/macos.mm PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    set(SRC_FILES ${SRC_FILES} src/windows.cpp)
+    set(SRC_FILES ${SRC_FILES} ${SRC_DIR}/windows.cpp)
 else()
     message(FATAL_ERROR "Unsupported mod platform!")
 endif()
