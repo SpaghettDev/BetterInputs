@@ -1,5 +1,5 @@
-#ifdef GEODE_IS_MACOS
-// #if 1
+// #ifdef GEODE_IS_MACOS
+#if 1
 
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
@@ -34,20 +34,21 @@ namespace BI::platform
 	}
 }
 
-#define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
-	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
-	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
-	method_setImplementation(cleanFuncName ## Method, (type)&funcName);
+void empty() {}
 
-using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
+template <typename Func>
+void createObjcHook(std::string_view className, std::string_view funcName, Func function)
+{
+	if (auto res = geode::ObjcHook::create(className, funcName, function, &empty); res.isOk())
+		static_cast<void>(geode::Mod::get()->claimHook(res.unwrap()));
+}
 
 
-static KeyEventType keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	geode::log::debug("received event");
 
 	if (!g_selectedInput)
-		keyDownExecOIMP(self, sel, event);
+		[self performSelector:sel withObject:event];
 
 	geode::log::debug("received event 2 with keyCode {}", [event keyCode]);
 	geode::log::debug(
@@ -187,15 +188,14 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 			!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
 			[event keyCode] == kVK_Return
 		) {
-			keyDownExec(self, sel, event);
+			[self performSelector:sel withObject:event];
 		}
 	}
 }
 
-static KeyEventType keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
-		keyUpExec(self, sel, event);
+		[self performSelector:sel withObject:event];
 }
 
 
@@ -233,10 +233,8 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 
 $on_mod(Loaded)
 {
-	auto eaglView = objc_getClass("EAGLView");
-
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyDownExec, keyDownExec:);
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyUpExec, keyUpExec:);
+	createObjcHook("EAGLView", "keyDownExec:", keyDownExec);
+	createObjcHook("EAGLView", "keyUpExec:", keyDownExec);
 }
 
 #endif
