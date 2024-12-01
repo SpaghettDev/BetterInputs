@@ -1,14 +1,14 @@
-#ifdef GEODE_IS_MACOS
-
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
-#import <CoreGraphics/CoreGraphics.h>
 #undef CommentType
 
+#include <Carbon/Carbon.h>
+#import <objc/runtime.h>
+
+#include <Geode/modify/CCTouchDispatcher.hpp>
 #include <Geode/cocos/platform/mac/CCEventDispatcher.h>
 #import <Geode/cocos/platform/mac/EAGLView.h>
-#import <objc/runtime.h>
 
 #include "BetterTextInputNode.hpp"
 
@@ -33,8 +33,8 @@ namespace BI::platform
 
 #define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
 	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
-	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
-	method_setImplementation(cleanFuncName ## Method, (type)&funcName);
+	cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
+	method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName));
 
 using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
 
@@ -42,7 +42,7 @@ using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
 static KeyEventType keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
-		keyDownExecOIMP(self, sel, event);
+		return keyDownExecOIMP(self, sel, event);
 
 	// on click, can be held
 	if (
@@ -52,13 +52,11 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 		switch ([event keyCode])
 		{
 			case kVK_Escape:
-				g_selectedInput->deselectInput();
-				break;
+				return g_selectedInput->deselectInput();
 
 			case kVK_Delete:
 			case kVK_ForwardDelete:
-				g_selectedInput->onDelete(false, [event keyCode] == kVK_ForwardDelete);
-				break;
+				return g_selectedInput->onDelete(false, [event keyCode] == kVK_ForwardDelete);
 
 			default:
 				break;
@@ -68,18 +66,16 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	switch ([event keyCode])
 	{
 		case kVK_RightArrow:
-			g_selectedInput->onRightArrowKey(
+			return g_selectedInput->onRightArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
-			break;
 
 		case kVK_LeftArrow:
-			g_selectedInput->onLeftArrowKey(
+			return g_selectedInput->onLeftArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
-			break;
 
 		default:
 			break;
@@ -87,9 +83,16 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 
 	if (
 		![event isARepeat] &&
-		!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
-		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+		BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
+		!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 	) {
+		// https://github.com/WebKit/WebKit/blob/5c8281f146cfbf4b6189b435b80c527f138b829f/Source/WebCore/platform/mac/PlatformEventFactoryMac.mm#L559
+		int code = [[event characters] length] > 0
+			? [[event characters] characterAtIndex:0]
+			: [[event charactersIgnoringModifiers] length] > 0
+				? [[event charactersIgnoringModifiers] characterAtIndex:0]
+				: 0;
+
 		switch ([event keyCode])
 		{
 			case kVK_Delete:
@@ -101,43 +104,19 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 				break;
 		}
 
-		/*
-		int code = [[event characters] length] > 0
-			? [[event characters] characterAtIndex:0]
-			: [[event charactersIgnoringModifiers] length] > 0
-				? [[event charactersIgnoringModifiers] characterAtIndex:0]
-				: 0;
-		*/
-
-		int code = 0;
-		{
-			NSString* s = [event characters];
-			code = [s length] > 0 ? [s characterAtIndex:0] : 0;
-
-			if (code == 0)
-			{
-				s = [event charactersIgnoringModifiers];
-				code = [s length] > 0 ? [s characterAtIndex:0] : 0;
-			}
-		}
-
 		switch (code)
 		{
 			case 'a': case 'A':
-				g_selectedInput->highlightFromToPos(0, -1);
-				break;
+				return g_selectedInput->highlightFromToPos(0, -1);
 
 			case 'c': case 'C':
-				g_selectedInput->onCopy();
-				break;
+				return g_selectedInput->onCopy();
 
 			case 'v': case 'V':
-				g_selectedInput->onPaste();
-				break;
+				return g_selectedInput->onPaste();
 
 			case 'x': case 'X':
-				g_selectedInput->onCut();
-				break;
+				return g_selectedInput->onCut();
 
 			default:
 				break;
@@ -151,40 +130,33 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 			switch ([event keyCode])
 			{
 				case kVK_Home:
-					g_selectedInput->onHomeKey(
+					return g_selectedInput->onHomeKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 					);
-					break;
 
 				case kVK_End:
-					g_selectedInput->onEndKey(
+					return g_selectedInput->onEndKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 					);
-					break;
 
 				default:
 					break;
 			}
 		}
-
-		if (
-			!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event) &&
-			!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
-			[event keyCode] == kVK_Return
-		) {
-			keyDownExec(self, sel, event);
-		}
 	}
+
+	// key is probably a regular character, allow CCIMEDispatcher to pick up the event
+	keyDownExecOIMP(self, sel, event);
 }
 
 static KeyEventType keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
-		keyUpExec(self, sel, event);
+		return keyUpExecOIMP(self, sel, event);
 }
 
 
-// TODO: move to hooking mouseDownExec
+// TODO: move to hooking mouseDownExec/mouseUpExec
 // handles mouse clicks
 struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCTouchDispatcher>
 {
@@ -199,7 +171,7 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 
 		if (type == TouchMessageType::Began)
 		{
-			CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
+			cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 
 			// the touch event's origin is bottom left
 			cocos2d::CCTouch touch{};
@@ -216,6 +188,7 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 };
 
 
+// https://github.com/qimiko/click-on-steps/blob/d8a87e93b5407e5f2113a9715363a5255724c901/src/macos.mm#L101
 $on_mod(Loaded)
 {
 	auto eaglView = objc_getClass("EAGLView");
@@ -223,5 +196,3 @@ $on_mod(Loaded)
 	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyDownExec, keyDownExec:);
 	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyUpExec, keyUpExec:);
 }
-
-#endif

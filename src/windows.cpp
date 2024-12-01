@@ -1,5 +1,3 @@
-#ifdef GEODE_IS_WINDOWS
-
 #include <Geode/modify/CCEGLView.hpp>
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
@@ -145,7 +143,7 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
 				key == GLFW_KEY_ENTER
 			) {
-				CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
+				return CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
 			}
 		}
 	}
@@ -178,5 +176,3 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 			g_selectedInput->useUpdateBlinkPos(false);
 	}
 };
-
-#endif
