@@ -1,10 +1,13 @@
-#ifdef GEODE_IS_MACOS
+// #ifdef GEODE_IS_MACOS
+#if 1
 
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 #import <CoreGraphics/CoreGraphics.h>
 #undef CommentType
+
+#include <Geode/loader/Log.hpp>
 
 #include <Geode/cocos/platform/mac/CCEventDispatcher.h>
 #import <Geode/cocos/platform/mac/EAGLView.h>
@@ -41,8 +44,18 @@ using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
 
 static KeyEventType keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
+	geode::log::debug("received event");
+
 	if (!g_selectedInput)
 		keyDownExecOIMP(self, sel, event);
+
+	geode::log::debug("received event 2 with keyCode {}", [event keyCode]);
+	geode::log::debug(
+		"isControl: {} isShift: {}",
+		BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
+		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+	);
+	geode::log::debug("isRepeat: {}", [event isARepeat]);
 
 	// on click, can be held
 	if (
@@ -119,6 +132,8 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 				s = [event charactersIgnoringModifiers];
 				code = [s length] > 0 ? [s characterAtIndex:0] : 0;
 			}
+
+			geode::log::debug("key found: '{}' ({})", static_cast<char>(code), code);
 		}
 
 		switch (code)
