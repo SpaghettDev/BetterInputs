@@ -1,8 +1,3 @@
-#include <string>
-
-#include <Geode/loader/Log.hpp>
-#include <Geode/utils/ObjcHook.hpp>
-
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
