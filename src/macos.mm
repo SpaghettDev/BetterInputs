@@ -38,10 +38,10 @@ namespace BI::platform
 
 #define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
 	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
-	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
+	cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
 	method_setImplementation(cleanFuncName ## Method, (type)&funcName);
 
-using KeyEventType = void(*)(EAGLView*, SEL, NSEVent*);
+using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
 
 
 static KeyEventType keyDownExecOIMP;
