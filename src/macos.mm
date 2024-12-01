@@ -41,6 +41,8 @@ void createObjcHook(std::string_view className, std::string_view funcName, Func 
 {
 	if (auto res = geode::ObjcHook::create(className, funcName, function, &empty); res.isOk())
 		static_cast<void>(geode::Mod::get()->claimHook(res.unwrap()));
+	else
+		geode::log::error("Failed to create Objective C Hook '{} {}'", className, funcName);
 }
 
 
