@@ -165,10 +165,11 @@ static KeyEventType mouseDownExecOIMP;
 void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 {
 	if (!g_selectedInput)
-		return mouseDOwnExecOIMP(self, self, event);
+		return mouseDownExecOIMP(self, sel, event);
 
+	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
 	cocos2d::CCTouch touch{};
-	touch.setTouchInfo(0, touchPos.x, [[[event window] contentView] frame].size.height - touchPos.y);
+	touch.setTouchInfo(0, mousePos.x, [[[event window] contentView] frame].size.height - mousePos.y);
 
 	g_selectedInput->useUpdateBlinkPos(true);
 
