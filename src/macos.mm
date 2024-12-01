@@ -223,7 +223,7 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 
 		if (type == TouchMessageType::Began)
 		{
-			CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
+			cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 
 			// the touch event's origin is bottom left
 			cocos2d::CCTouch touch{};
