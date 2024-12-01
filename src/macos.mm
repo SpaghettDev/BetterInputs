@@ -36,26 +36,20 @@ namespace BI::platform
 	}
 }
 
-void empty() {}
+#define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
+	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
+	cleanFuncName ## OIMP = method_getImplementation(cleanFuncName ## Method); \
+	method_setImplementation(cleanFuncName ## Method, (type)&funcName);
 
-template <typename Func>
-void createObjcHook(const std::string& className, const std::string& funcName, Func function)
-{
-	if (auto res = geode::ObjcHook::create(className, funcName, function, &empty); res.isOk())
-	{
-		static_cast<void>(geode::Mod::get()->claimHook(res.unwrap()));
-		geode::log::debug("Objective C Hook created successfully '{} {}'", className, funcName);
-	}
-	else
-		geode::log::error("Failed to create Objective C Hook '{} {}'", className, funcName);
-}
+using KeyEventType = void(*)(EAGLView*, SEL, NSEVent*);
 
 
+static KeyEventType keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	geode::log::debug("received event");
 
 	if (!g_selectedInput)
-		[self performSelector:sel withObject:event];
+		return keyDownExecOIMP(self, sel, event);
 
 	geode::log::debug("received event 2 with keyCode {}", [event keyCode]);
 	geode::log::debug(
@@ -195,14 +189,15 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 			!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
 			[event keyCode] == kVK_Return
 		) {
-			[self performSelector:sel withObject:event];
+			return keyDownExecOIMP(self, sel, event);
 		}
 	}
 }
 
+static KeyEventType keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
-		[self performSelector:sel withObject:event];
+		return keyUpExecOIMP(self, sel, event);
 }
 
 
@@ -242,6 +237,8 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 
 $on_mod(Loaded)
 {
-	createObjcHook("EAGLView", "keyDownExec:", keyDownExec);
-	createObjcHook("EAGLView", "keyUpExec:", keyDownExec);
+	auto eaglView = objc_getClass("EAGLView");
+
+	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyDownExec, keyDownExec:);
+	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyUpExec, keyUpExec:);
 }

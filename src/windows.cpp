@@ -143,7 +143,7 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
 				key == GLFW_KEY_ENTER
 			) {
-				CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
+				return CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
 			}
 		}
 	}
