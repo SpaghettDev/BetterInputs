@@ -1,5 +1,3 @@
-#ifdef GEODE_IS_WINDOWS
-
 #include <Geode/modify/CCEGLView.hpp>
 #include <Geode/cocos/robtop/glfw/glfw3.h>
 
@@ -178,5 +176,3 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 			g_selectedInput->useUpdateBlinkPos(false);
 	}
 };
-
-#endif

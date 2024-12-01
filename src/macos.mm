@@ -1,5 +1,4 @@
-#ifdef GEODE_IS_MACOS
-// #if 1
+#include <string_view>
 
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
@@ -243,5 +242,3 @@ $on_mod(Loaded)
 	createObjcHook("EAGLView", "keyDownExec:", keyDownExec);
 	createObjcHook("EAGLView", "keyUpExec:", keyDownExec);
 }
-
-#endif
