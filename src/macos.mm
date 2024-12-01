@@ -96,15 +96,11 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 
 	if (
 		![event isARepeat] &&
-		!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
-		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+		BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
+		!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 	) {
 		switch ([event keyCode])
 		{
-			case kVK_Delete:
-			case kVK_ForwardDelete:
-				return g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
-
 			case 'a': case 'A':
 				return g_selectedInput->highlightFromToPos(0, -1);
 
@@ -116,6 +112,10 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 
 			case 'x': case 'X':
 				return g_selectedInput->onCut();
+
+			case kVK_Delete:
+			case kVK_ForwardDelete:
+				return g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
 
 			default:
 				break;
@@ -152,12 +152,10 @@ static KeyEventType keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
 		return keyUpExecOIMP(self, sel, event);
-
-	geode::log::debug("key released ({})", [event keyCode]);
 }
 
 
-// TODO: move to hooking mouseDownExec
+// TODO: move to hooking mouseDownExec/mouseUpExec
 // handles mouse clicks
 struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCTouchDispatcher>
 {
@@ -166,8 +164,6 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 	{
 		if (!g_selectedInput)
 			return cocos2d::CCTouchDispatcher::touches(touches, event, type);
-
-		geode::log::debug("button clicked");
 
 		auto* touch = static_cast<cocos2d::CCTouch*>(touches->anyObject());
 		const auto touchPos = touch->getLocation();
