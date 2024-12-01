@@ -1,5 +1,5 @@
-// #ifdef GEODE_IS_MACOS
-#if 1
+#ifdef GEODE_IS_MACOS
+// #if 1
 
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
