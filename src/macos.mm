@@ -49,14 +49,6 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
 		return keyDownExecOIMP(self, sel, event);
 
-	geode::log::debug("key down ({})", [event keyCode]);
-	geode::log::debug(
-		"isControl: {} isShift: {} isRepeat: {}",
-		BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
-		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event),
-		[event isARepeat]
-	);
-
 	// on click, can be held
 	if (
 		!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
@@ -112,6 +104,7 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 			case kVK_ForwardDelete:
 				g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
 				break;
+
 			default:
 				break;
 		}
