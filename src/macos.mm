@@ -101,16 +101,16 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	) {
 		switch ([event keyCode])
 		{
-			case 'a': case 'A':
+			case kVK_ANSI_A:
 				return g_selectedInput->highlightFromToPos(0, -1);
 
-			case 'c': case 'C':
+			case kVK_ANSI_C:
 				return g_selectedInput->onCopy();
 
-			case 'v': case 'V':
+			case kVK_ANSI_V:
 				return g_selectedInput->onPaste();
 
-			case 'x': case 'X':
+			case kVK_ANSI_X:
 				return g_selectedInput->onCut();
 
 			case kVK_Delete:
