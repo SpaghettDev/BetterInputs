@@ -167,9 +167,13 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	if (!g_selectedInput)
 		return mouseDownExecOIMP(self, sel, event);
 
+	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
+
+	// NSWindow's mouse origin is the bottom left
+	// CCTouch's mouse origin is top left (because of course it is)
 	cocos2d::CCTouch touch{};
-	touch.setTouchInfo(0, mousePos.x, mousePos.y);
+	touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
 
 	g_selectedInput->useUpdateBlinkPos(true);
 
