@@ -99,23 +99,36 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 		BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
 		!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 	) {
+		// https://github.com/WebKit/WebKit/blob/5c8281f146cfbf4b6189b435b80c527f138b829f/Source/WebCore/platform/mac/PlatformEventFactoryMac.mm#L559
+		int code = [[event characters] length] > 0
+			? [[event characters] characterAtIndex:0]
+			: [[event charactersIgnoringModifiers] length] > 0
+				? [[event charactersIgnoringModifiers] characterAtIndex:0]
+				: 0;
+
 		switch ([event keyCode])
 		{
-			case kVK_ANSI_A:
-				return g_selectedInput->highlightFromToPos(0, -1);
-
-			case kVK_ANSI_C:
-				return g_selectedInput->onCopy();
-
-			case kVK_ANSI_V:
-				return g_selectedInput->onPaste();
-
-			case kVK_ANSI_X:
-				return g_selectedInput->onCut();
-
 			case kVK_Delete:
 			case kVK_ForwardDelete:
-				return g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
+				g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
+				break;
+			default:
+				break;
+		}
+
+		switch (code)
+		{
+			case 'a': case 'A':
+				return g_selectedInput->highlightFromToPos(0, -1);
+
+			case 'c': case 'C':
+				return g_selectedInput->onCopy();
+
+			case 'v': case 'V':
+				return g_selectedInput->onPaste();
+
+			case 'x': case 'X':
+				return g_selectedInput->onCut();
 
 			default:
 				break;
@@ -187,6 +200,7 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 };
 
 
+// https://github.com/qimiko/click-on-steps/blob/d8a87e93b5407e5f2113a9715363a5255724c901/src/macos.mm#L101
 $on_mod(Loaded)
 {
 	auto eaglView = objc_getClass("EAGLView");
