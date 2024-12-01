@@ -169,7 +169,7 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 
 	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
 	cocos2d::CCTouch touch{};
-	touch.setTouchInfo(0, mousePos.x, [[[event window] contentView] frame].size.height - mousePos.y);
+	touch.setTouchInfo(0, mousePos.x, mousePos.y);
 
 	g_selectedInput->useUpdateBlinkPos(true);
 
