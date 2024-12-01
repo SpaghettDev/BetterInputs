@@ -1,16 +1,19 @@
 #include <string_view>
 
+#include <Geode/loader/Log.hpp>
+#include <Geode/utils/ObjcHook.hpp>
+
 #define CommentType CommentTypeDummy
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
-#import <CoreGraphics/CoreGraphics.h>
 #undef CommentType
 
-#include <Geode/loader/Log.hpp>
+#include <Carbon/Carbon.h>
+#import <objc/runtime.h>
 
+#include <Geode/modify/CCTouchDispatcher.hpp>
 #include <Geode/cocos/platform/mac/CCEventDispatcher.h>
 #import <Geode/cocos/platform/mac/EAGLView.h>
-#import <objc/runtime.h>
 
 #include "BetterTextInputNode.hpp"
 
