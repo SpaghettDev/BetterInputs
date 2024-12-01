@@ -1,4 +1,4 @@
-#include <string_view>
+#include <string>
 
 #include <Geode/loader/Log.hpp>
 #include <Geode/utils/ObjcHook.hpp>
@@ -39,7 +39,7 @@ namespace BI::platform
 void empty() {}
 
 template <typename Func>
-void createObjcHook(std::string_view className, std::string_view funcName, Func function)
+void createObjcHook(const std::string& className, const std::string& funcName, Func function)
 {
 	if (auto res = geode::ObjcHook::create(className, funcName, function, &empty); res.isOk())
 	{
