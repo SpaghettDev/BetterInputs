@@ -40,7 +40,10 @@ template <typename Func>
 void createObjcHook(std::string_view className, std::string_view funcName, Func function)
 {
 	if (auto res = geode::ObjcHook::create(className, funcName, function, &empty); res.isOk())
+	{
 		static_cast<void>(geode::Mod::get()->claimHook(res.unwrap()));
+		geode::log::debug("Objective C Hook created successfully '{} {}'", className, funcName);
+	}
 	else
 		geode::log::error("Failed to create Objective C Hook '{} {}'", className, funcName);
 }
@@ -210,6 +213,8 @@ struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCT
 	{
 		if (!g_selectedInput)
 			return cocos2d::CCTouchDispatcher::touches(touches, event, type);
+
+		geode::log::debug("button clicked");
 
 		auto* touch = static_cast<cocos2d::CCTouch*>(touches->anyObject());
 		const auto touchPos = touch->getLocation();
