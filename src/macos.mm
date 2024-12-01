@@ -46,18 +46,16 @@ using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
 
 static KeyEventType keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
-	geode::log::debug("received event");
-
 	if (!g_selectedInput)
 		return keyDownExecOIMP(self, sel, event);
 
-	geode::log::debug("received event 2 with keyCode {}", [event keyCode]);
+	geode::log::debug("key down ({})", [event keyCode]);
 	geode::log::debug(
-		"isControl: {} isShift: {}",
+		"isControl: {} isShift: {} isRepeat: {}",
 		BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
-		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+		BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event),
+		[event isARepeat]
 	);
-	geode::log::debug("isRepeat: {}", [event isARepeat]);
 
 	// on click, can be held
 	if (
@@ -67,13 +65,11 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 		switch ([event keyCode])
 		{
 			case kVK_Escape:
-				g_selectedInput->deselectInput();
-				break;
+				return g_selectedInput->deselectInput();
 
 			case kVK_Delete:
 			case kVK_ForwardDelete:
-				g_selectedInput->onDelete(false, [event keyCode] == kVK_ForwardDelete);
-				break;
+				return g_selectedInput->onDelete(false, [event keyCode] == kVK_ForwardDelete);
 
 			default:
 				break;
@@ -83,18 +79,16 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	switch ([event keyCode])
 	{
 		case kVK_RightArrow:
-			g_selectedInput->onRightArrowKey(
+			return g_selectedInput->onRightArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
-			break;
 
 		case kVK_LeftArrow:
-			g_selectedInput->onLeftArrowKey(
+			return g_selectedInput->onLeftArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
-			break;
 
 		default:
 			break;
@@ -109,52 +103,19 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 		{
 			case kVK_Delete:
 			case kVK_ForwardDelete:
-				g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
-				break;
+				return g_selectedInput->onDelete(true, [event keyCode] == kVK_ForwardDelete);
 
-			default:
-				break;
-		}
-
-		/*
-		int code = [[event characters] length] > 0
-			? [[event characters] characterAtIndex:0]
-			: [[event charactersIgnoringModifiers] length] > 0
-				? [[event charactersIgnoringModifiers] characterAtIndex:0]
-				: 0;
-		*/
-
-		int code = 0;
-		{
-			NSString* s = [event characters];
-			code = [s length] > 0 ? [s characterAtIndex:0] : 0;
-
-			if (code == 0)
-			{
-				s = [event charactersIgnoringModifiers];
-				code = [s length] > 0 ? [s characterAtIndex:0] : 0;
-			}
-
-			geode::log::debug("key found: '{}' ({})", static_cast<char>(code), code);
-		}
-
-		switch (code)
-		{
 			case 'a': case 'A':
-				g_selectedInput->highlightFromToPos(0, -1);
-				break;
+				return g_selectedInput->highlightFromToPos(0, -1);
 
 			case 'c': case 'C':
-				g_selectedInput->onCopy();
-				break;
+				return g_selectedInput->onCopy();
 
 			case 'v': case 'V':
-				g_selectedInput->onPaste();
-				break;
+				return g_selectedInput->onPaste();
 
 			case 'x': case 'X':
-				g_selectedInput->onCut();
-				break;
+				return g_selectedInput->onCut();
 
 			default:
 				break;
@@ -168,36 +129,31 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 			switch ([event keyCode])
 			{
 				case kVK_Home:
-					g_selectedInput->onHomeKey(
+					return g_selectedInput->onHomeKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 					);
-					break;
 
 				case kVK_End:
-					g_selectedInput->onEndKey(
+					return g_selectedInput->onEndKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 					);
-					break;
 
 				default:
 					break;
 			}
 		}
-
-		if (
-			!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event) &&
-			!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event) &&
-			[event keyCode] == kVK_Return
-		) {
-			return keyDownExecOIMP(self, sel, event);
-		}
 	}
+
+	// key is probably a regular character, allow CCIMEDispatcher to pick up the event
+	keyDownExecOIMP(self, sel, event);
 }
 
 static KeyEventType keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
 	if (!g_selectedInput)
 		return keyUpExecOIMP(self, sel, event);
+
+	geode::log::debug("key released ({})", [event keyCode]);
 }
 
 
