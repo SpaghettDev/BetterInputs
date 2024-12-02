@@ -36,10 +36,10 @@ namespace BI::platform
 	cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
 	method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName));
 
-using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
+using key_event_t = void(*)(EAGLView*, SEL, NSEvent*);
 
 
-static KeyEventType keyDownExecOIMP;
+static key_event_t keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 {
 	if (!g_selectedInput)
@@ -150,7 +150,7 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	keyDownExecOIMP(self, sel, event);
 }
 
-static KeyEventType keyUpExecOIMP;
+static key_event_t keyUpExecOIMP;
 void keyUpExec(EAGLView* self, SEL sel, NSEvent* event)
 {
 	if (g_selectedInput)
@@ -160,8 +160,7 @@ void keyUpExec(EAGLView* self, SEL sel, NSEvent* event)
 }
 
 
-
-static KeyEventType mouseDownExecOIMP;
+static key_event_t mouseDownExecOIMP;
 void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 {
 	if (!g_selectedInput)
@@ -181,7 +180,7 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	g_selectedInput->ccTouchBegan(&touch, nullptr);
 }
 
-static KeyEventType mouseUpExecOIMP;
+static key_event_t mouseUpExecOIMP;
 void mouseUpExec(EAGLView* self, SEL sel, NSEvent* event)
 {
 	if (!g_selectedInput)
@@ -196,9 +195,9 @@ $on_mod(Loaded)
 {
 	auto eaglView = objc_getClass("EAGLView");
 
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyDownExec, keyDownExec:);
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyUpExec, keyUpExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, keyDownExec, keyDownExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, keyUpExec, keyUpExec:);
 
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, mouseDownExec, mouseDownExec:);
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, mouseUpExec, mouseUpExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, mouseDownExec, mouseDownExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, mouseUpExec, mouseUpExec:);
 }
