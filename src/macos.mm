@@ -32,15 +32,19 @@ namespace BI::platform
 }
 
 #define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
-	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
-	cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
-	method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName));
+	do { \
+		auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
+		cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
+		method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
+		geode::log::debug("Hooked Objective C Method '{}'", #funcName); \
+	} while(0)
 
-using KeyEventType = void(*)(EAGLView*, SEL, NSEvent*);
+using key_event_t = void(*)(EAGLView*, SEL, NSEvent*);
 
 
-static KeyEventType keyDownExecOIMP;
-void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
+static key_event_t keyDownExecOIMP;
+void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
+{
 	if (!g_selectedInput)
 		return keyDownExecOIMP(self, sel, event);
 
@@ -149,43 +153,44 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event) {
 	keyDownExecOIMP(self, sel, event);
 }
 
-static KeyEventType keyUpExecOIMP;
-void keyUpExec(EAGLView* self, SEL sel, NSEvent* event) {
-	if (!g_selectedInput)
-		return keyUpExecOIMP(self, sel, event);
+static key_event_t keyUpExecOIMP;
+void keyUpExec(EAGLView* self, SEL sel, NSEvent* event)
+{
+	if (g_selectedInput)
+		return;
+
+	keyUpExecOIMP(self, sel, event);
 }
 
 
-// TODO: move to hooking mouseDownExec/mouseUpExec
-// handles mouse clicks
-struct BetterTouchDispatcher : geode::Modify<BetterTouchDispatcher, cocos2d::CCTouchDispatcher>
+static key_event_t mouseDownExecOIMP;
+void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 {
-	// https://github.com/ninXout/Crystal-Client/blob/7df5a8336ccb852bc984e55dd29ca27bb1741443/src/ImGui/ImGui.cpp#L96
-	void touches(cocos2d::CCSet* touches, cocos2d::CCEvent* event, unsigned int type)
-	{
-		if (!g_selectedInput)
-			return cocos2d::CCTouchDispatcher::touches(touches, event, type);
+	if (!g_selectedInput)
+		return mouseDownExecOIMP(self, sel, event);
 
-		auto* touch = static_cast<cocos2d::CCTouch*>(touches->anyObject());
-		const auto touchPos = touch->getLocation();
+	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
+	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
 
-		if (type == TouchMessageType::Began)
-		{
-			cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
+	// NSWindow's mouse origin is the bottom left
+	// CCTouch's mouse origin is top left (because of course it is)
+	cocos2d::CCTouch touch{};
+	touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
 
-			// the touch event's origin is bottom left
-			cocos2d::CCTouch touch{};
-			touch.setTouchInfo(0, touchPos.x, winSize.height - touchPos.y);
+	g_selectedInput->useUpdateBlinkPos(true);
 
-			g_selectedInput->useUpdateBlinkPos(true);
+	// 🥰
+	g_selectedInput->ccTouchBegan(&touch, nullptr);
+}
 
-			// 🥰
-			g_selectedInput->ccTouchBegan(&touch, nullptr);
-		}
-		else
-			g_selectedInput->useUpdateBlinkPos(false);
-	}
-};
+static key_event_t mouseUpExecOIMP;
+void mouseUpExec(EAGLView* self, SEL sel, NSEvent* event)
+{
+	if (!g_selectedInput)
+		return mouseUpExecOIMP(self, sel, event);
+
+	g_selectedInput->useUpdateBlinkPos(false);
+}
 
 
 // https://github.com/qimiko/click-on-steps/blob/d8a87e93b5407e5f2113a9715363a5255724c901/src/macos.mm#L101
@@ -193,6 +198,9 @@ $on_mod(Loaded)
 {
 	auto eaglView = objc_getClass("EAGLView");
 
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyDownExec, keyDownExec:);
-	HOOK_OBJC_METHOD(eaglView, KeyEventType, keyUpExec, keyUpExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, keyDownExec, keyDownExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, keyUpExec, keyUpExec:);
+
+	HOOK_OBJC_METHOD(eaglView, key_event_t, mouseDownExec, mouseDownExec:);
+	HOOK_OBJC_METHOD(eaglView, key_event_t, mouseUpExec, mouseUpExec:);
 }

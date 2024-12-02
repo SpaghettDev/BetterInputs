@@ -155,9 +155,9 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 	{
 		CCEGLView::onGLFWMouseCallBack(window, button, action, mods);
 
-		if (!g_selectedInput || button != GLFW_MOUSE_BUTTON_1 || action == 2) return;
+		if (!g_selectedInput || button != GLFW_MOUSE_BUTTON_1 || action == GLFW_REPEAT) return;
 
-		if (action == 1)
+		if (action == GLFW_PRESS)
 		{
 			CCSize winSize = CCDirector::sharedDirector()->getWinSize();
 			CCPoint mousePos = BI::cocos::getMousePosition();
