@@ -36,7 +36,7 @@ namespace BI::platform
 		auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
 		cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
 		method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
-		geode::log::debug("Hooked Objective C Method '{}'", funcNmae); \
+		geode::log::debug("Hooked Objective C Method '{}'", funcName); \
 	} while (0)
 
 using key_event_t = void(*)(EAGLView*, SEL, NSEvent*);
