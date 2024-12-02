@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v4.2.0-beta.11] - 2024-12-01
+
+### Changed
+
+- Hook `EAGLView` `mouseDownExec:`/`mouseUpExec:` methods for mouse input instead of CCTouchDispatcher (#14) - Thanks @SpaghettDev
+
 ## [v4.2.0-beta.10] - 2024-12-01
 
 ### Added
