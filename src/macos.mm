@@ -32,12 +32,10 @@ namespace BI::platform
 }
 
 #define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
-	do { \
-		auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
-		cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
-		method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
-		geode::log::debug("Hooked Objective C Method '{}'", funcName); \
-	} while (0)
+	auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
+	cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
+	method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
+	geode::log::debug("Hooked Objective C Method '{}'", funcName)
 
 using key_event_t = void(*)(EAGLView*, SEL, NSEvent*);
 
