@@ -43,7 +43,7 @@ namespace BI
 			auto viewFrame = [[[event window] contentView] frame];
 			auto winSize = cocos2d::CCDirector::get()->getWinSize();
 			auto scaleFactor = cocos2d::CCPoint(winSize) / ccp(viewFrame.size.width, viewFrame.size.height);
-			auto mouse = [event locationInView];
+			auto mouse = [event locationInWindow];
 
 			return ccp(mouse.x - windowFrame.origin.x, winSize.height - (mouse.y - windowFrame.origin.y)) * scaleFactor;
 		}
@@ -52,7 +52,7 @@ namespace BI
 
 #define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
 	do { \
-		auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(klass), @selector(funcName)); \
+		auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(#klass), @selector(funcName)); \
 		cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
 		method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
 		geode::log::debug("Hooked Objective C Method '" #klass " " #funcName "'"); \
