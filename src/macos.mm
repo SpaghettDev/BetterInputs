@@ -15,32 +15,50 @@
 #include "types/TouchMessageType.hpp"
 #include "utils.hpp"
 
-namespace BI::platform
+namespace BI
 {
-	inline bool keyDown(PlatformKey key, NSEvent* event)
+	namespace platform
 	{
-		switch (key)
+		inline bool keyDown(PlatformKey key, NSEvent* event)
 		{
-			case BI::PlatformKey::LEFT_CONTROL:
-				return [event modifierFlags] & NSCommandKeyMask;
-			case BI::PlatformKey::LEFT_SHIFT:
-				return [event modifierFlags] & NSShiftKeyMask;
-		}
+			switch (key)
+			{
+				case BI::PlatformKey::LEFT_CONTROL:
+					return [event modifierFlags] & NSCommandKeyMask;
+				case BI::PlatformKey::LEFT_SHIFT:
+					return [event modifierFlags] & NSShiftKeyMask;
+				case BI::PlatformKey::LEFT_ALT:
+					return [event modifierFlags] & NSAlternateKeyMask;
+			}
 
-		return false;
+			return false;
+		}
+	}
+
+	namespace cocos
+	{
+		inline cocos2d::CCPoint getMousePosition(NSEvent* event)
+		{
+			auto windowFrame = [[event window] frame];
+			auto viewFrame = [[[event window] contentView] frame];
+			auto winSize = cocos2d::CCDirector::get()->getWinSize();
+			auto scaleFactor = cocos2d::CCPoint(winSize) / ccp(viewFrame.size.width, viewFrame.size.height);
+			auto mouse = [event locationInView];
+
+			return ccp(mouse.x - windowFrame.origin.x, winSize.height - (mouse.y - windowFrame.origin.y)) * scaleFactor;
+		}
 	}
 }
 
 #define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
 	do { \
-		auto cleanFuncName ## Method = class_getInstanceMethod(klass, @selector(funcName)); \
+		auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(klass), @selector(funcName)); \
 		cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
 		method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
-		geode::log::debug("Hooked Objective C Method '{}'", #funcName); \
+		geode::log::debug("Hooked Objective C Method '" #klass " " #funcName "'"); \
 	} while(0)
 
 using key_event_t = void(*)(EAGLView*, SEL, NSEvent*);
-
 
 static key_event_t keyDownExecOIMP;
 void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
@@ -71,13 +89,13 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	{
 		case kVK_RightArrow:
 			return g_selectedInput->onRightArrowKey(
-				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
+				BI::platform::keyDown(BI::PlatformKey::LEFT_ALT, event),
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
 
 		case kVK_LeftArrow:
 			return g_selectedInput->onLeftArrowKey(
-				BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event),
+				BI::platform::keyDown(BI::PlatformKey::LEFT_ALT, event),
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
 
@@ -91,6 +109,7 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 		!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 	) {
 		// https://github.com/WebKit/WebKit/blob/5c8281f146cfbf4b6189b435b80c527f138b829f/Source/WebCore/platform/mac/PlatformEventFactoryMac.mm#L559
+		// we use this instead of [event keyCode] because the returned value of keyCode for letters is keyboard locale-specific
 		int code = [[event characters] length] > 0
 			? [[event characters] characterAtIndex:0]
 			: [[event charactersIgnoringModifiers] length] > 0
@@ -147,6 +166,21 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 					break;
 			}
 		}
+
+		if (BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL, event))
+		{
+			switch ([event keyCode])
+			{
+				case kVK_LeftArrow:
+					return g_selectedInput->onHomeKey(false);
+
+				case kVK_RightArrow:
+					return g_selectedInput->onEndKey(false);
+
+				default:
+					break;
+			}
+		}
 	}
 
 	// key is probably a regular character, allow CCIMEDispatcher to pick up the event
@@ -169,13 +203,12 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	if (!g_selectedInput)
 		return mouseDownExecOIMP(self, sel, event);
 
-	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
-	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
+	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition(event);
 
 	// NSWindow's mouse origin is the bottom left
 	// CCTouch's mouse origin is top left (because of course it is)
 	cocos2d::CCTouch touch{};
-	touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
+	touch.setTouchInfo(0, mousePos.x, mousePos.y);
 
 	g_selectedInput->useUpdateBlinkPos(true);
 
@@ -196,11 +229,9 @@ void mouseUpExec(EAGLView* self, SEL sel, NSEvent* event)
 // https://github.com/qimiko/click-on-steps/blob/d8a87e93b5407e5f2113a9715363a5255724c901/src/macos.mm#L101
 $on_mod(Loaded)
 {
-	auto eaglView = objc_getClass("EAGLView");
+	HOOK_OBJC_METHOD(EAGLView, key_event_t, keyDownExec, keyDownExec:);
+	HOOK_OBJC_METHOD(EAGLView, key_event_t, keyUpExec, keyUpExec:);
 
-	HOOK_OBJC_METHOD(eaglView, key_event_t, keyDownExec, keyDownExec:);
-	HOOK_OBJC_METHOD(eaglView, key_event_t, keyUpExec, keyUpExec:);
-
-	HOOK_OBJC_METHOD(eaglView, key_event_t, mouseDownExec, mouseDownExec:);
-	HOOK_OBJC_METHOD(eaglView, key_event_t, mouseUpExec, mouseUpExec:);
+	HOOK_OBJC_METHOD(EAGLView, key_event_t, mouseDownExec, mouseDownExec:);
+	HOOK_OBJC_METHOD(EAGLView, key_event_t, mouseUpExec, mouseUpExec:);
 }

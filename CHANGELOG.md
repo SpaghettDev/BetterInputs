@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v4.2.0-beta.12] - 2024-12-04
+
+### Added
+
+- MacOS keybinds: `Command + Left/Right Arrow`, `Option + Left/Right Arrow`
+- `ALT`/`Option` key detection
+
 ## [v4.2.0-beta.11] - 2024-12-01
 
 ### Changed
