@@ -37,16 +37,17 @@ namespace BI
 
 	namespace cocos
 	{
-		inline cocos2d::CCPoint getMousePosition(NSEvent* event)
-		{
-			auto windowFrame = [[event window] frame];
-			auto viewFrame = [[[event window] contentView] frame];
-			auto winSize = cocos2d::CCDirector::get()->getWinSize();
-			auto scaleFactor = cocos2d::CCPoint(winSize) / ccp(viewFrame.size.width, viewFrame.size.height);
-			auto mouse = [event locationInWindow];
+		// TODO: fix
+		// inline cocos2d::CCPoint getMousePosition(NSEvent* event)
+		// {
+		// 	auto windowFrame = [[event window] frame];
+		// 	auto viewFrame = [[[event window] contentView] frame];
+		// 	auto winSize = cocos2d::CCDirector::get()->getWinSize();
+		// 	auto scaleFactor = cocos2d::CCPoint(winSize) / ccp(viewFrame.size.width, viewFrame.size.height);
+		// 	auto mouse = [event locationInWindow];
 
-			return ccp(mouse.x - windowFrame.origin.x, winSize.height - (mouse.y - windowFrame.origin.y)) * scaleFactor;
-		}
+		// 	return ccp(mouse.x - windowFrame.origin.x, winSize.height - (mouse.y - windowFrame.origin.y)) * scaleFactor;
+		// }
 	}
 }
 
