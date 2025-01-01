@@ -204,7 +204,8 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	if (!g_selectedInput)
 		return mouseDownExecOIMP(self, sel, event);
 
-	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition(event);
+	// cocos2d::CCPoint mousePos = BI::cocos::getMousePosition(event);
+	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
 
 	// NSWindow's mouse origin is the bottom left
 	// CCTouch's mouse origin is top left (because of course it is)
