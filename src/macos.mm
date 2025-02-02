@@ -24,11 +24,11 @@ namespace BI
 			switch (key)
 			{
 				case BI::PlatformKey::LEFT_CONTROL:
-					return [event modifierFlags] & NSCommandKeyMask;
+					return [event modifierFlags] & NSEventModifierFlagCommand;
 				case BI::PlatformKey::LEFT_SHIFT:
-					return [event modifierFlags] & NSShiftKeyMask;
+					return [event modifierFlags] & NSEventModifierFlagShift;
 				case BI::PlatformKey::LEFT_ALT:
-					return [event modifierFlags] & NSAlternateKeyMask;
+					return [event modifierFlags] & NSEventModifierFlagOption;
 			}
 
 			return false;
@@ -208,7 +208,7 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	geode::log::debug("mouse pos is ({}, {})", m.x, m.y);
 
 	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
-	cocos2d::CCPoint mousePos = cocos2d::CCpoint{ m.x, m.y };
+	cocos2d::CCPoint mousePos = cocos2d::CCPoint{ m.x, m.y };
 
 	// NSWindow's mouse origin is the bottom left
 	// CCTouch's mouse origin is top left (because of course it is)
