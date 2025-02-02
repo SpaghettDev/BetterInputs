@@ -208,7 +208,7 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	geode::log::debug("mouse pos is ({}, {})", m.x, m.y);
 
 	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
-	cocos2d::CCPoint mousePos = cocos2d::CCPoint{ m.x, m.y };
+	cocos2d::CCPoint mousePos = cocos2d::CCPoint{ static_cast<float>(m.x), static_cast<float>(m.y) };
 
 	// NSWindow's mouse origin is the bottom left
 	// CCTouch's mouse origin is top left (because of course it is)
