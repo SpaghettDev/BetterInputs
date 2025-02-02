@@ -37,17 +37,16 @@ namespace BI
 
 	namespace cocos
 	{
-		// TODO: fix
-		// inline cocos2d::CCPoint getMousePosition(NSEvent* event)
-		// {
-		// 	auto windowFrame = [[event window] frame];
-		// 	auto viewFrame = [[[event window] contentView] frame];
-		// 	auto winSize = cocos2d::CCDirector::get()->getWinSize();
-		// 	auto scaleFactor = cocos2d::CCPoint(winSize) / ccp(viewFrame.size.width, viewFrame.size.height);
-		// 	auto mouse = [event locationInWindow];
+		inline cocos2d::CCPoint getMousePosition(NSEvent* event)
+		{
+			auto windowFrame = [[event window] frame];
+			auto viewFrame = [[[event window] contentView] frame];
+			auto winSize = cocos2d::CCDirector::get()->getWinSize();
+			auto scaleFactor = cocos2d::CCPoint(winSize) / ccp(viewFrame.size.width, viewFrame.size.height);
+			auto mouse = [event locationInWindow];
 
-		// 	return ccp(mouse.x - windowFrame.origin.x, winSize.height - (mouse.y - windowFrame.origin.y)) * scaleFactor;
-		// }
+			return ccp(mouse.x - windowFrame.origin.x, winSize.height - (mouse.y - windowFrame.origin.y)) * scaleFactor;
+		}
 	}
 }
 
@@ -204,13 +203,17 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	if (!g_selectedInput)
 		return mouseDownExecOIMP(self, sel, event);
 
-	// cocos2d::CCPoint mousePos = BI::cocos::getMousePosition(event);
-	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition();
+	NSPoint m = [event locationInWindow];
+
+	geode::log::debug("mouse pos is ({}, {})", m.x, m.y);
+
+	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
+	cocos2d::CCPoint mousePos = cocos2d::CCpoint{ m.x, m.y };
 
 	// NSWindow's mouse origin is the bottom left
 	// CCTouch's mouse origin is top left (because of course it is)
 	cocos2d::CCTouch touch{};
-	touch.setTouchInfo(0, mousePos.x, mousePos.y);
+	touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
 
 	g_selectedInput->useUpdateBlinkPos(true);
 
