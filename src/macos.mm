@@ -51,8 +51,8 @@ namespace BI
 			auto mousePos = [NSEvent mouseLocation];
 
 			return cocos2d::CCPoint{
-				mousePos.x - windowFrame.origin.x,
-				mousePos.y - windowFrame.origin.y
+				static_cast<float>(mousePos.x - windowFrame.origin.x),
+				static_cast<float>(mousePos.y - windowFrame.origin.y)
 			} * scaleFactor;
 		}
 	}
