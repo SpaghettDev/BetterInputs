@@ -217,7 +217,7 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	geode::log::debug("mouse pos: {}", mousePos);
 
 	cocos2d::CCTouch touch{};
-	touch.setTouchInfo(0, mousePos.x, /* winSize.height - */ mousePos.y);
+	touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
 
 	g_selectedInput->useUpdateBlinkPos(true);
 
