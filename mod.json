@@ -1,5 +1,5 @@
 {
-    "geode": "4.1.2",
+    "geode": "4.2.0",
     "gd": {
         "win": "2.2074",
         "mac": "2.2074"
@@ -10,14 +10,14 @@
     "developer": "SpaghettDev",
     "description": "Makes inputs behave like they should.",
     "tags": ["enhancement"],
-	"links": {
-		"community": "https://discord.gg/3bShQb6Jz3",
-		"source": "https://github.com/SpaghettDev/BetterInputs"
-	},
-	"issues": {
-		"info": "Report any bugs/suggestions here.",
-		"url": "https://github.com/SpaghettDev/BetterInputs/issues"
-	},
+    "links": {
+        "community": "https://discord.gg/3bShQb6Jz3",
+        "source": "https://github.com/SpaghettDev/BetterInputs"
+    },
+    "issues": {
+        "info": "Report any bugs/suggestions here.",
+        "url": "https://github.com/SpaghettDev/BetterInputs/issues"
+    },
     "settings": {
         "allow-any-character": {
             "type": "bool",
