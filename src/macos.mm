@@ -214,8 +214,6 @@ void mouseDownExec(EAGLView* self, SEL sel, NSEvent* event)
 	cocos2d::CCSize winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
 	cocos2d::CCPoint mousePos = BI::cocos::getMousePosition(event);
 
-	geode::log::debug("mouse pos: {}", mousePos);
-
 	cocos2d::CCTouch touch{};
 	touch.setTouchInfo(0, mousePos.x, winSize.height - mousePos.y);
 
