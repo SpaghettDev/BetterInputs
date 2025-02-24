@@ -42,12 +42,17 @@ namespace BI
 			auto window = [event window];
 			auto windowFrame = [window frame];
 			auto viewFrame = [[window contentView] frame];
-			auto scaleFactor = cocos2d::CCPoint{ cocos2d::CCDirector::get()->getWinSize() } / cocos2d::CCPoint{ viewFrame.size.width, viewFrame.size.height };
-			auto mouse = [event mouseLocation];
+			auto scaleFactor = cocos2d::CCPoint{
+				cocos2d::CCDirector::get()->getWinSize()
+			} / cocos2d::CCPoint{
+				static_cast<float>(viewFrame.size.width),
+				static_cast<float>(viewFrame.size.height)
+			};
+			auto mousePos = event.mouseLocation;
 
 			return cocos2d::CCPoint{
-				mouse.x - windowFrame.origin.x,
-				mouse.y - windowFrame.origin.y
+				mousePos.x - windowFrame.origin.x,
+				mousePos.y - windowFrame.origin.y
 			} * scaleFactor;
 		}
 	}
