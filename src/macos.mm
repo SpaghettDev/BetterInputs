@@ -48,7 +48,7 @@ namespace BI
 				static_cast<float>(viewFrame.size.width),
 				static_cast<float>(viewFrame.size.height)
 			};
-			auto mousePos = event.mouseLocation;
+			auto mousePos = [NSEvent mouseLocation];
 
 			return cocos2d::CCPoint{
 				mousePos.x - windowFrame.origin.x,
