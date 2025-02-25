@@ -16,15 +16,18 @@ set(SRC_FILES ${SRC_FILES}
 )
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    set(SRC_FILES ${SRC_FILES} ${SRC_DIR}/macos.mm)
-    set_source_files_properties(${SRC_DIR}/macos.mm PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set(SRC_FILES ${SRC_FILES} ${SRC_DIR}/platform/macos.mm)
+    set_source_files_properties(${SRC_DIR}/platform/macos.mm PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    set(SRC_FILES ${SRC_FILES} ${SRC_DIR}/windows.cpp)
+    set(SRC_FILES ${SRC_FILES} ${SRC_DIR}/platform/windows.cpp)
 else()
     message(FATAL_ERROR "Unsupported mod platform!")
 endif()
 
 add_library(${PROJECT_NAME} MODULE "${SRC_FILES}")
+target_include_directories(${PROJECT_NAME}
+    PRIVATE ${SRC_DIR}  # allow easy inclusion of utils and BetterTextInputNode
+)
 
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")

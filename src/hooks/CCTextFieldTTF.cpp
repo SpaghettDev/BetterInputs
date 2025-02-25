@@ -1,6 +1,6 @@
 #include <Geode/modify/CCTextFieldTTF.hpp>
 
-#include "../BetterTextInputNode.hpp"
+#include "BetterTextInputNode.hpp"
 
 // CCTextInputNode::getString is inlined, all it does is call CCTextFieldTTF::getString
 struct BetterCCTextFieldTTF : geode::Modify<BetterCCTextFieldTTF, cocos2d::CCTextFieldTTF>

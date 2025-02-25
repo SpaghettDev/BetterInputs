@@ -1,6 +1,6 @@
 #include <Geode/modify/CCScene.hpp>
 
-#include "../BetterTextInputNode.hpp"
+#include "BetterTextInputNode.hpp"
 
 // fix layers appearing above selected CCTextInputNodes making ESC key deselect the
 // input node instead of closing the alert
@@ -21,6 +21,7 @@ struct AlertLayerFix : geode::Modify<AlertLayerFix, cocos2d::CCScene>
 
 		return ret;
 	}
+
 
 	void onUpdateTick(float)
 	{

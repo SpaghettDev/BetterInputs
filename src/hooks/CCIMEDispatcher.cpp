@@ -1,6 +1,6 @@
 #include <Geode/modify/CCIMEDispatcher.hpp>
 
-#include "../BetterTextInputNode.hpp"
+#include "BetterTextInputNode.hpp"
 
 // backspace and del is handled in dispatchDeleteBackward/dispatchDeleteForward then in CCEGLView::onGLFWKeyCallback/[EAGLView keyDownExec:]
 // same goes for all the other characters (dispatchInsertText then CCEGLView::onGLFWKeyCallback/[EAGLView keyDownExec:])
