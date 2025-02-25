@@ -10,6 +10,8 @@ bool BetterTextInputNode::init(float p0, float p1, char const* p2, char const* p
 {
     if (!CCTextInputNode::init(p0, p1, p2, p3, p4, p5)) return false;
 
+    m_fields->m_placeholder_str = p2;
+
     appendHighlightNode();
 
     return true;
@@ -25,6 +27,9 @@ bool BetterTextInputNode::onTextFieldAttachWithIME(cocos2d::CCTextFieldTTF* tFie
 bool BetterTextInputNode::onTextFieldDetachWithIME(cocos2d::CCTextFieldTTF* tField)
 {
     g_selectedInput = nullptr;
+
+    if (m_fields->m_string.empty())
+        onStringEmpty();
 
     return CCTextInputNode::onTextFieldDetachWithIME(tField);
 }
@@ -432,12 +437,19 @@ void BetterTextInputNode::onCut()
 // other events
 void BetterTextInputNode::onStringEmpty()
 {
-    if (this->m_placeholderLabel)
-        this->m_placeholderLabel->setString("");
+    std::string&& newString = "";
+
+    if (g_selectedInput)
+        newString = "";
     else
-        this->m_textArea->setString("");
+        newString = m_fields->m_placeholder_str;
+
+    if (this->m_placeholderLabel)
+        this->m_placeholderLabel->setString(newString.c_str());
+    else
+        this->m_textArea->setString(newString.c_str());
     updateBlinkLabelToCharForced(-1);
-    showTextOrPlaceholder(false);
+    showTextOrPlaceholder(true);
 }
 
 

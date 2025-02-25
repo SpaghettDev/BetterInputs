@@ -14,6 +14,7 @@ public:
 		// the actual string, because we basically rework everything about the input text insertion is broken :D
 		// (getString() normally returns the last character or is empty, we hook CCTextFieldTTF::getString to fix this)
 		std::string m_string = "";
+		std::string m_placeholder_str = "";
 
 		// current cursor position
 		int m_pos = -1;
