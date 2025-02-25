@@ -4,8 +4,8 @@
 
 struct InputNodeTextAreaInfo
 {
-    cocos2d::CCLabelBMFont* label;
-    std::size_t line;
-    std::size_t numCharsFromStart;
-    std::size_t numCharsFromLabelStart;
+	cocos2d::CCLabelBMFont* label;
+	std::size_t line;
+	std::size_t numCharsFromStart;
+	std::size_t numCharsFromLabelStart;
 };

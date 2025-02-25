@@ -10,7 +10,7 @@ class BetterTextInputNode : public geode::Modify<BetterTextInputNode, CCTextInpu
 {
 public:
 	struct Fields
-    {
+	{
 		// the actual string, because we basically rework everything about the input text insertion is broken :D
 		// (getString() normally returns the last character or is empty, we hook CCTextFieldTTF::getString to fix this)
 		std::string m_string = "";

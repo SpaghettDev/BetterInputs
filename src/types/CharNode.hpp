@@ -4,9 +4,9 @@
 
 struct CharNode
 {
-    cocos2d::CCPoint position;
-    cocos2d::CCPoint centerPosition;
-    float widthFromCenter;
+	cocos2d::CCPoint position;
+	cocos2d::CCPoint centerPosition;
+	float widthFromCenter;
 
-    operator cocos2d::CCPoint() { return position; }
+	operator cocos2d::CCPoint() { return position; }
 };
