@@ -2,9 +2,34 @@
 
 #include "BetterTextInputNode.hpp"
 
+#include "types/CCLabelBMFontPlus.hpp"
+
 #include "utils.hpp"
 
 using namespace geode::prelude;
+
+cocos2d::CCRect createRectFromPoints(
+	const cocos2d::CCPoint& bottomLeft,
+	const cocos2d::CCPoint& bottomRight,
+	const cocos2d::CCPoint& topRight,
+	const cocos2d::CCPoint& topLeft
+) {
+	float minX = std::min({
+		bottomLeft.x, bottomRight.x, topRight.x, topLeft.x
+	});
+	float minY = std::min({
+		bottomLeft.y, bottomRight.y, topRight.y, topLeft.y
+	});
+	float maxX = std::max({
+		bottomLeft.x, bottomRight.x, topRight.x, topLeft.x
+	});
+	float maxY = std::max({
+		bottomLeft.y, bottomRight.y, topRight.y, topLeft.y
+	});
+
+	return { minX, minY, maxX - minX, maxY - minY };
+}
+
 
 bool BetterTextInputNode::init(float p0, float p1, char const* p2, char const* p3, int p4, char const* p5)
 {
@@ -13,6 +38,9 @@ bool BetterTextInputNode::init(float p0, float p1, char const* p2, char const* p
 	m_fields->m_placeholder_str = p2;
 
 	appendHighlightNode();
+
+	this->m_cursor->setScaleX(1.5f);
+	this->schedule(schedule_selector(BetterTextInputNode::updateCursorBlink));
 
 	return true;
 }
@@ -36,6 +64,8 @@ bool BetterTextInputNode::onTextFieldDetachWithIME(cocos2d::CCTextFieldTTF* tFie
 
 void BetterTextInputNode::updateBlinkLabelToChar(int pos)
 {
+	m_fields->m_time_since_last_input = .0f;
+
 	showTextOrPlaceholder(true);
 
 	if (m_fields->m_use_update_blink_pos)
@@ -45,8 +75,7 @@ void BetterTextInputNode::updateBlinkLabelToChar(int pos)
 
 	CCTextInputNode::updateBlinkLabelToChar(m_fields->m_pos);
 
-	if (this->m_textArea)
-		textAreaCursorFix(m_fields->m_pos);
+	updateCursorPos(m_fields->m_pos);
 
 	if (m_fields->m_highlighted.isHighlighting() && !m_fields->m_is_adding_to_highlight)
 		clearHighlight();
@@ -58,67 +87,113 @@ void BetterTextInputNode::setString(gd::string str)
 }
 
 
-// bug fixes
-void BetterTextInputNode::textAreaCursorFix(std::size_t pos)
+void BetterTextInputNode::updateCursorBlink(float dt)
 {
-	if (m_fields->m_string.empty()) return;
+	if (!this->m_cursor) return;
 
-	// fix space character being quirky and being positioned in the bottom left of the last character
-	// which makes this function position the cursor sometimes be in the middle of the previous character
-	// or sometimes somewhere not even close
-	// also it sometimes just positions the cursor somewhere completely wrong regardless of the character being
-	// a space or not, which we fix below (i think CCTextInputNode is very ass)
-	if (m_fields->m_string.length() >= 2)
+	if (!this->m_cursor->isVisible())
 	{
-		// what's to the right of the cursor
-		int pos = m_fields->m_pos == -1 ? m_fields->m_string.length() - 1 : m_fields->m_pos;
-		const auto& cursorTextLabelInfo = getTextLabelInfoFromPos(m_fields->m_pos);
+		this->m_fields->m_is_blinking = false;
+		m_fields->m_time_since_last_input = .0f;
+		return this->m_cursor->stopActionByTag(ACTION_TAG::CURSOR_BLINK);
+	}
 
-		if (pos != 0 && m_fields->m_string[pos - 1] == ' ')
+	m_fields->m_time_since_last_input += dt;
+
+	if (this->m_fields->m_is_blinking)
+	{
+		if (m_fields->m_time_since_last_input < .3f)
 		{
-			float targetXPos;
-
-			// if the space character isnt the last in the current label, set the position to the left of the next character
-			if (cursorTextLabelInfo.numCharsFromLabelStart != std::string_view(cursorTextLabelInfo.label->getString()).length() - 1)
-				targetXPos = getCharNodePosInfo(pos, m_fields->m_pos != -1).position.x;
-			else
-			{
-				const auto& secondToLastCharNode = getCharNodePosInfo(pos - 2, false);
-				targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
-			}
-
-			this->m_cursor->setPositionX(targetXPos);
+			this->m_cursor->pauseSchedulerAndActions();
+			this->m_cursor->setOpacity(255);
 		}
 		else
+			this->m_cursor->resumeSchedulerAndActions();
+
+		return;
+	}
+
+	CCRepeatForever* blinkAction;
+
+	if (BI::geode::get<bool>("alternate-cursor-blink"))
+		blinkAction = CCRepeatForever::create(
+			CCSequence::create(
+				CCFadeTo::create(.0f, 0),
+				CCDelayTime::create(.5f),
+				CCFadeTo::create(.0f, 255),
+				CCDelayTime::create(.5f),
+				nullptr
+			)
+		);
+	else
+		blinkAction = CCRepeatForever::create(
+			CCSequence::create(
+				CCFadeOut::create(.5f),
+				CCFadeIn::create(.5f),
+				CCDelayTime::create(.1f),
+				nullptr
+			)
+		);
+	blinkAction->setTag(ACTION_TAG::CURSOR_BLINK);
+
+	this->m_cursor->runAction(blinkAction);
+
+	this->m_fields->m_is_blinking = true;
+}
+
+// fix space character being quirky and being positioned in the bottom left of the last character
+// which makes this function position the cursor sometimes be in the middle of the previous character
+// or sometimes somewhere not even close
+// also it sometimes just positions the cursor somewhere completely wrong regardless of the character being
+// a space or not, which we fix below (i think CCTextInputNode is very ass)
+void BetterTextInputNode::updateCursorPos(std::size_t pos)
+{
+	if (m_fields->m_string.empty() || !this->m_cursor) return;
+
+	int cursorPos = m_fields->m_pos == -1 ? m_fields->m_string.length() : m_fields->m_pos;
+
+	if (auto placeholderLabel = static_cast<CCLabelBMFontPlus*>(this->m_placeholderLabel))
+	{
+		if (m_fields->m_string.empty())
+			return this->m_cursor->setPosition({ 2.f, -1.f });
+
+		float cursorXPos;
+		if (m_fields->m_pos != -1)
 		{
-			if (m_fields->m_pos == -1)
-			{
-				float targetXPos;
-
-				if (m_fields->m_string[pos] == ' ')
-				{
-					const auto& secondToLastCharNode = getCharNodePosInfo(pos - 1, false);
-
-					targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
-				}
-				else
-					targetXPos = getCharNodePosInfo(-1, false).position.x;
-
-				this->m_cursor->setPositionX(targetXPos);
-			}
-			else
-				this->m_cursor->setPositionX(
-					getCharNodePosInfo(
-						cursorTextLabelInfo.numCharsFromStart - (m_fields->m_pos != 0),
-						m_fields->m_pos == 0
-					).position.x
-				);
+			auto childChar = static_cast<CCFontSprite*>(placeholderLabel->getChildren()->objectAtIndex(cursorPos));
+			float charPosX = placeholderLabel->getLetterPosXLeft(childChar, this->m_fontValue2, this->m_isChatFont);
+			cursorXPos = charPosX + (this->m_fontValue1 * placeholderLabel->getScaleX());
 		}
+		else
+			cursorXPos = placeholderLabel->getScaledContentWidth() + (2.f * placeholderLabel->getScaleX());
+
+		float anchorOffsetX = placeholderLabel->getContentWidth() * (1.f - placeholderLabel->getAnchorPoint().x);
+		float offset = anchorOffsetX * placeholderLabel->getScale();
+
+		CCPoint cursorPos{ cursorXPos - (placeholderLabel->getScaledContentWidth() - offset), -1.f };
+
+		this->m_cursor->setPosition(placeholderLabel->getPosition() + cursorPos);
+		this->m_cursor->setAnchorPoint({ .5f, placeholderLabel->getAnchorPoint().y });
+	}
+	else
+	{
+		if (m_fields->m_string.empty())
+			return this->m_cursor->setPosition({ .0f, -9.f });
+
+		auto charInfo = getCharNodePosInfo(m_fields->m_pos, m_fields->m_pos != -1);
+
+		float labelYPos = this->convertToNodeSpace(
+			this->m_textArea->m_label->convertToWorldSpace(charInfo.label->getPosition())
+		).y + (charInfo.label->getContentHeight() / 2.f);
+
+		this->m_cursor->setAnchorPoint({ .5f, .45f });
+		this->m_cursor->setPosition({ charInfo.position.x, labelYPos });
 	}
 }
 
 
 // key events
+
 void BetterTextInputNode::onRightArrowKey(bool isCtrl, bool isShift)
 {
 	if (!m_fields->m_highlighted.isHighlighting() && (m_fields->m_string.empty() || m_fields->m_pos == -1)) return;
@@ -126,7 +201,7 @@ void BetterTextInputNode::onRightArrowKey(bool isCtrl, bool isShift)
 	if (m_fields->m_highlighted.isHighlighting() && !isShift)
 	{
 		updateBlinkLabelToCharForced(
-			m_fields->m_highlighted.getToPos(false) == m_fields->m_string.length()
+			m_fields->m_highlighted.getToPos<false>() == m_fields->m_string.length()
 				? -1
 				: m_fields->m_highlighted.getToPos()
 		);
@@ -435,6 +510,7 @@ void BetterTextInputNode::onCut()
 
 
 // other events
+
 void BetterTextInputNode::onStringEmpty()
 {
 	std::string&& newString = "";
@@ -454,6 +530,7 @@ void BetterTextInputNode::onStringEmpty()
 
 
 // getters and setters
+
 void BetterTextInputNode::useUpdateBlinkPos(bool toggle)
 {
 	m_fields->m_use_update_blink_pos = toggle;
@@ -482,43 +559,37 @@ void BetterTextInputNode::highlightFromToPos(int from, int to)
 {
 	if (m_fields->m_string.empty()) return;
 
-	const CCPoint startPos = getCharNodePosInfo(0, false);
-
 	if ((from == -1 ? m_fields->m_string.length() : from) > (to == -1 ? m_fields->m_string.length() : to))
 		std::swap(from, to);
 
 	if (from == to)
 		return clearHighlight();
 
+	auto highlightColor = getHighlightColor();
 	m_fields->m_highlighted.update(m_fields->m_string, { from, to });
 
-	if (this->m_placeholderLabel)
+	if (auto label = static_cast<CCLabelBMFontPlus*>(this->m_placeholderLabel))
 	{
-		m_fields->m_highlights[0]->setPositionX(getCharNodePosInfo(from, true).position.x - 1.f);
+		auto highlight = m_fields->m_highlights[0];
+		auto fromCharInfo = getCharNodePosInfo(from, true);
+		auto toCharInfo = getCharNodePosInfo(to, to != -1);
 
-		float targetXPos;
-		if (m_fields->m_string[to == -1 ? m_fields->m_string.length() - 1 : to] == ' ')
-		{
-			const auto& secondToLastCharNode = getCharNodePosInfo(
-				(to == -1 ? m_fields->m_string.length() - 1 : to) - 1,
-				false
-			);
+		float topY = fromCharInfo.position.y - getHighlightOffset(label->getScale())
+			+ fromCharInfo.sprite->getScaledContentHeight() / 2.f;
+		float bottomY = toCharInfo.position.y - getHighlightOffset(label->getScale())
+			- toCharInfo.sprite->getScaledContentHeight() / 2.f;
 
-			targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
-		}
-		else
-			targetXPos = getCharNodePosInfo(to, to != -1).position.x;
-
-		m_fields->m_highlights[0]->setContentWidth(
-			std::abs(
-				m_fields->m_highlights[0]->getPositionX() - targetXPos
-			)
+		CCRect rect = createRectFromPoints(
+			{ fromCharInfo.position.x, bottomY },
+			{ toCharInfo.position.x, bottomY },
+			{ toCharInfo.position.x, topY },
+			{ fromCharInfo.position.x, topY }
 		);
+		// we can get away by just lying about the height
+		rect.size.height = label->getScaledContentHeight();
 
-		m_fields->m_highlights[0]->setScaleY(
-			3.f * this->m_placeholderLabel->getScale() + .4f
-		);
-		m_fields->m_highlights[0]->setVisible(true);
+		highlight->clear();
+		highlight->drawRect(rect, highlightColor, .0f, highlightColor);
 	}
 	else
 	{
@@ -537,154 +608,115 @@ void BetterTextInputNode::highlightFromToPos(int from, int to)
 					removeLastHighlightNode();
 		}
 
-		// beware! very freaky code below
+		std::size_t targetFrom = from;
+		std::size_t targetTo = to == -1 ? m_fields->m_string.length() - 1 : to;
+
+		bool hasHighlightedStart = false;
+		bool hasHighlightedEnd = false;
+
+		for (std::size_t line = 0; auto* label : textAreaLabels)
 		{
-			std::size_t line = 0;
-			std::size_t targetFrom = from;
-			std::size_t targetTo = to == -1 ? m_fields->m_string.length() - 1 : to;
+			const std::size_t labelStrLen = std::string_view{ label->getString() }.length() - 1;
+			const auto& highlight = m_fields->m_highlights[line];
 
-			bool hasHighlightedStart = false;
-			bool hasHighlightedEnd = false;
+			highlight->clear();
 
-			for (auto* label : textAreaLabels)
+			if (hasHighlightedStart && hasHighlightedEnd)
+				continue; // dont break in case other highlights are visible
+
+			if (!hasHighlightedStart)
 			{
-				const std::size_t labelStrLen = std::string_view(label->getString()).length() - 1;
-				const auto& highlightSprite = m_fields->m_highlights[line];
-
-				// label is anchored to bottom left :D
-				highlightSprite->setPositionY(
-					this->convertToNodeSpace(
-						this->m_textArea->m_label->convertToWorldSpace(label->getPosition())
-					).y + (label->getContentHeight() / 2)
-				);
-				highlightSprite->setScaleY(2.3f * this->m_textArea->getScale());
-				highlightSprite->setVisible(false);
-
-				if (hasHighlightedStart && hasHighlightedEnd)
-					continue; // dont break in case other highlights are visible
-
-				if (!hasHighlightedStart)
+				if (targetFrom <= labelStrLen)
 				{
-					if (targetFrom <= labelStrLen)
-					{
-						const auto& textLabelInfo = getTextLabelInfoFromPos(
-							m_fields->m_highlighted.isHighlighting()
-								? m_fields->m_highlighted.getToPos(false)
-								: m_fields->m_pos
-						);
-						hasHighlightedStart = true;
+					const auto& textLabelInfo = getTextLabelInfoFromPos(
+						m_fields->m_highlighted.isHighlighting()
+							? m_fields->m_highlighted.getToPos<false>()
+							: m_fields->m_pos
+					);
+					hasHighlightedStart = true;
 
-						highlightSprite->setPositionX(getCharNodePosInfoAtLine(targetFrom, line, true).position.x);
-						highlightSprite->setVisible(true);
+					CharNodeInfo fromCharInfo = getCharNodePosInfoAtLine(targetFrom, line, true);
+					CharNodeInfo toCharInfo;
 
-						// in case we're highlighting from and to the next label/the same label
-						if (targetTo > labelStrLen)
-						{
-							float targetXPos;
-
-							// fix space character being quirky and being positioned in the bottom left of the last character :D
-							if (std::string_view(label->getString()).back() == ' ')
-							{
-								const auto& secondToLastCharNode = getCharNodePosInfoAtLine(
-									labelStrLen - 1,
-									line,
-									false
-								);
-								targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
-							}
-							else
-								targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, false).position.x;
-
-							highlightSprite->setContentWidth(std::abs(highlightSprite->getPositionX() - targetXPos));
-
-							if (targetTo == labelStrLen + 1)
-								hasHighlightedEnd = true;
-						}
-						else
-						{
-							// if selection ends at the end of the current label,
-							// use the right of last character. else set to left of target character
-							if (textLabelInfo.numCharsFromLabelStart == std::string_view(textLabelInfo.label->getString()).length() - 1)
-								highlightSprite->setContentWidth(
-									std::abs(
-										highlightSprite->getPositionX() - getCharNodePosInfoAtLine(
-											textLabelInfo.numCharsFromLabelStart,
-											textLabelInfo.line,
-											false
-										).position.x
-									)
-								);
-							else
-								highlightSprite->setContentWidth(
-									std::abs(
-										highlightSprite->getPositionX() - getCharNodePosInfoAtLine(
-											targetTo,
-											line,
-											true
-										).position.x
-									)
-								);
-
-							hasHighlightedEnd = true;
-						}
-					}
-				}
-				else if (!hasHighlightedEnd)
-				{
-					highlightSprite->setPositionX(getCharNodePosInfoAtLine(0, line, true).position.x);
-
-					// again, check if we're highlighting to the current label or afterwards
+					// in case we're highlighting from and to the next label/the same label
 					if (targetTo > labelStrLen)
 					{
-						float targetXPos;
+						toCharInfo = getCharNodePosInfoAtLine(labelStrLen, line, false);
 
-						if (std::string_view(label->getString()).back() == ' ')
-						{
-							const auto& secondToLastCharNode = getCharNodePosInfoAtLine(
-								labelStrLen - 1,
-								line,
-								false
-							);
-							targetXPos = secondToLastCharNode.position.x + (secondToLastCharNode.widthFromCenter * 2);
-						}
-						else
-							targetXPos = getCharNodePosInfoAtLine(labelStrLen, line, to != -1).position.x;
-
-						highlightSprite->setContentWidth(
-							std::abs(
-								highlightSprite->getPositionX() - targetXPos
-							)
-						);
-
-						highlightSprite->setVisible(true);
+						if (targetTo == labelStrLen + 1)
+							hasHighlightedEnd = true;
 					}
 					else
 					{
-						highlightSprite->setContentWidth(
-							std::abs(
-								highlightSprite->getPositionX() - getCharNodePosInfoAtLine(targetTo, line, to != -1).position.x
-							)
-						);
-
-						// selecting from a line to the last character in another one in which the last character is space
-						// *and* followed by another line causes the last highlight to become visible
-						highlightSprite->setVisible(
-							std::string_view(
-								static_cast<CCLabelBMFont*>(
-									this->m_textArea->m_label->getChildren()->objectAtIndex(line - 1)
-								)->getString()
-							).back() != ' ' ||
-							getTextLabelInfoFromPos(m_fields->m_highlighted.getToPos()).numCharsFromLabelStart != 0
-						);
+						// if selection ends at the end of the current label,
+						// use the right of last character. else set to left of target character
+						if (textLabelInfo.numCharsFromLabelStart == std::string_view{ textLabelInfo.label->getString() }.length() - 1)
+							toCharInfo = getCharNodePosInfoAtLine(
+								textLabelInfo.numCharsFromLabelStart,
+								textLabelInfo.line,
+								false
+							);
+						else
+							toCharInfo = getCharNodePosInfoAtLine(
+								targetTo,
+								line,
+								true
+							);
 
 						hasHighlightedEnd = true;
 					}
+
+					float topY = fromCharInfo.position.y - 3.f
+						+ fromCharInfo.sprite->getScaledContentHeight() / 2.f;
+					float bottomY = toCharInfo.position.y - 3.f
+						- toCharInfo.sprite->getScaledContentHeight() / 2.f;
+
+					CCRect rect = createRectFromPoints(
+						{ fromCharInfo.position.x, bottomY },
+						{ toCharInfo.position.x, bottomY },
+						{ toCharInfo.position.x, topY },
+						{ fromCharInfo.position.x, topY }
+					);
+					// we can get away by just lying about the height
+					rect.size.height = label->getScaledContentHeight();
+
+					highlight->drawRect(rect, highlightColor, .0f, highlightColor);
+				}
+			}
+			else if (!hasHighlightedEnd)
+			{
+				CharNodeInfo fromCharInfo = getCharNodePosInfoAtLine(0, line, true);
+				CharNodeInfo toCharInfo;
+
+				// again, check if we're highlighting to the current label or afterwards
+				if (targetTo > labelStrLen)
+					toCharInfo = getCharNodePosInfoAtLine(labelStrLen, line, to != -1);
+				else
+				{
+					toCharInfo = getCharNodePosInfoAtLine(targetTo, line, to != -1);
+					hasHighlightedEnd = true;
 				}
 
-				targetFrom -= labelStrLen + 1;
-				targetTo -= labelStrLen + 1;
-				line++;
+				float topY = fromCharInfo.position.y - 3.f
+					+ fromCharInfo.sprite->getScaledContentHeight() / 2.f;
+				float bottomY = toCharInfo.position.y - 3.f
+					- toCharInfo.sprite->getScaledContentHeight() / 2.f;
+
+				CCRect rect = createRectFromPoints(
+					{ fromCharInfo.position.x, bottomY },
+					{ toCharInfo.position.x, bottomY },
+					{ toCharInfo.position.x, topY },
+					{ fromCharInfo.position.x, topY }
+				);
+				// we can get away by just lying about the height
+				rect.size.height = label->getScaledContentHeight();
+
+				highlight->drawRect(rect, highlightColor, .0f, highlightColor);
 			}
+
+			targetFrom -= labelStrLen + 1;
+			targetTo -= labelStrLen + 1;
+			line++;
 		}
 	}
 }
@@ -798,68 +830,83 @@ void BetterTextInputNode::deletePos(int pos, bool isDel)
  * +---+
  * 
  * *: the actual position of the character
- * #: the position returned by this function
+ * #: the position returned by this function, depending on isLeftAnchored
  * 
  * @param pos
  * @param isLeftAnchored
  * @return CharNode
  */
-CharNode BetterTextInputNode::getCharNodePosInfo(std::size_t pos, bool isLeftAnchored)
+CharNodeInfo BetterTextInputNode::getCharNodePosInfo(std::size_t pos, bool isLeftAnchored)
 {
-	if (pos == -1)
-		pos = m_fields->m_string.length() - 1;
+	std::size_t cursorPos = pos == -1 ? m_fields->m_string.length() - 1 : pos;
 
-	if (this->m_placeholderLabel)
+	if (auto label = static_cast<CCLabelBMFontPlus*>(this->m_placeholderLabel))
 	{
-		auto charNode = static_cast<CCNode*>(
-			this->m_placeholderLabel->getChildren()->objectAtIndex(pos)
+		auto charNode = static_cast<CCFontSprite*>(
+			label->getChildren()->objectAtIndex(cursorPos)
 		);
 
-		CCPoint charNodeNodeSpacePos = this->convertToNodeSpace(
-			this->m_placeholderLabel->convertToWorldSpace(charNode->getPosition())
-		);
+		CCPoint charPos{
+			(isLeftAnchored
+				? label->getLetterPosXLeft(charNode, this->m_fontValue2, this->m_isChatFont)
+				: label->getLetterPosXRight(charNode, this->m_fontValue2, true)
+			) - label->getScaledContentWidth() * label->getAnchorPoint().x,
+			label->getPositionY()
+		};
 
-		const float offset = (charNode->getContentWidth() * this->m_placeholderLabel->getScaleX()) / 2;
+		// 23.5f is the average content height of a CCFontSprite
+		if (m_fields->m_string[cursorPos] == ' ')
+			charNode->setContentHeight(23.5f);
+
 		return {
-			{
-				isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
-				charNodeNodeSpacePos.y
-			},
-			charNodeNodeSpacePos,
-			offset
+			charNode,
+			label,
+			charPos
 		};
 	}
 	else
 	{
-		CCLabelBMFont* targetLabel;
+		CCLabelBMFontPlus* targetLabel;
 
 		for (auto* label : CCArrayExt<CCLabelBMFont*>(this->m_textArea->m_label->getChildren()))
 		{
 			std::size_t labelStringSize = std::string_view(label->getString()).length() - 1;
 
-			if (labelStringSize >= pos)
+			if (labelStringSize >= cursorPos)
 			{
-				targetLabel = label;
+				targetLabel = static_cast<CCLabelBMFontPlus*>(label);
 				break;
 			}
 
-			pos -= labelStringSize + 1;
+			cursorPos -= labelStringSize + 1;
 		}
 
-		auto charNode = static_cast<CCNode*>(targetLabel->getChildren()->objectAtIndex(pos));
-
-		CCPoint charNodeNodeSpacePos = this->convertToNodeSpace(
-			targetLabel->convertToWorldSpace(charNode->getPosition())
+		auto charNode = static_cast<CCFontSprite*>(
+			targetLabel->getChildren()->objectAtIndex(cursorPos)
 		);
 
-		const float offset = (charNode->getContentWidth() * this->m_textArea->getScaleX()) / 2;
+		CCPoint charPos{
+			(isLeftAnchored
+				? targetLabel->getLetterPosXLeft(charNode, this->m_fontValue2, this->m_isChatFont)
+				: targetLabel->getLetterPosXRight(charNode, this->m_fontValue2, true)
+			) - targetLabel->getScaledContentWidth() * targetLabel->getAnchorPoint().x,
+			charNode->getPositionY()
+		};
+
+		if (m_fields->m_string[pos] == ' ')
+		{
+			charNode->setContentHeight(9.f);
+
+			if (isLeftAnchored)
+				charPos.x = charNode->getPositionX();
+		}
+
 		return {
-			{
-				isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
-				charNodeNodeSpacePos.y
-			},
-			charNodeNodeSpacePos,
-			offset
+			charNode,
+			targetLabel,
+			this->convertToNodeSpace(
+				targetLabel->convertToWorldSpace(charPos)
+			)
 		};
 	}
 }
@@ -875,31 +922,44 @@ CharNode BetterTextInputNode::getCharNodePosInfo(std::size_t pos, bool isLeftAnc
  * @param isLeftAnchored
  * @return CharNode
  */
-CharNode BetterTextInputNode::getCharNodePosInfoAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored)
+CharNodeInfo BetterTextInputNode::getCharNodePosInfoAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored)
 {
-	auto targetLabel = static_cast<CCLabelBMFont*>(
+	auto targetLabel = static_cast<CCLabelBMFontPlus*>(
 		this->m_textArea->m_label->getChildren()->objectAtIndex(line)
 	);
 
 	if (pos == -1)
 		pos = std::string_view(targetLabel->getString()).length() - 1;
 
-	auto charNode = static_cast<CCNode*>(
+	auto charNode = static_cast<CCFontSprite*>(
 		targetLabel->getChildren()->objectAtIndex(pos)
 	);
 
-	CCPoint charNodeNodeSpacePos = this->convertToNodeSpace(
-		targetLabel->convertToWorldSpace(charNode->getPosition())
+	float labelYPos = this->convertToNodeSpace(
+		this->m_textArea->m_label->convertToWorldSpace(targetLabel->getPosition())
+	).y + (targetLabel->getScaledContentHeight() / 2.f);
+	float charXPos = (
+		isLeftAnchored
+			? targetLabel->getLetterPosXLeft(charNode, this->m_fontValue2, this->m_isChatFont)
+			: targetLabel->getLetterPosXRight(charNode, this->m_fontValue2, this->m_isChatFont)
+		) - targetLabel->getScaledContentWidth() * targetLabel->getAnchorPoint().x;
+
+	if (m_fields->m_string[pos] == ' ')
+	{
+		charNode->setContentHeight(9.f);
+
+		if (isLeftAnchored)
+			charXPos = charNode->getPositionX();
+	}
+
+	CCPoint charNodePos = this->convertToNodeSpace(
+		targetLabel->convertToWorldSpace({ charXPos, .0f })
 	);
 
-	const float offset = (charNode->getContentWidth() * this->m_textArea->getScaleX()) / 2;
 	return {
-		{
-			isLeftAnchored ? (charNodeNodeSpacePos.x - offset) : (charNodeNodeSpacePos.x + offset),
-			charNodeNodeSpacePos.y
-		},
-		charNodeNodeSpacePos,
-		offset
+		charNode,
+		targetLabel,
+		{ charNodePos.x, labelYPos }
 	};
 }
 
@@ -1018,7 +1078,7 @@ void BetterTextInputNode::updateBlinkLabelToCharForced(int pos)
 void BetterTextInputNode::clearHighlight()
 {
 	for (auto* highlight : m_fields->m_highlights)
-		highlight->setVisible(false);
+		highlight->clear();
 
 	m_fields->m_highlighted.reset();
 }
@@ -1037,20 +1097,13 @@ void BetterTextInputNode::deselectInput()
 /**
  * @brief Adds a highlight node to the parent CCTextInputNode
  * 
- * @return cocos2d::extension::CCScale9Sprite*
+ * @return CCDrawNode*
  */
-cocos2d::extension::CCScale9Sprite* BetterTextInputNode::appendHighlightNode()
+CCDrawNode* BetterTextInputNode::appendHighlightNode()
 {
-	auto highlight = cocos2d::extension::CCScale9Sprite::create("square.png");
+	auto highlight = CCDrawNode::create();
 
-	highlight->setOpacity(120);
-	highlight->setPosition(
-		this->m_placeholderLabel
-			? CCPoint{this->m_cursor->getPosition() - 1.f}
-			: CCPoint{ .0f, .0f }
-	);
-	highlight->setAnchorPoint({ .0f, .5f });
-	highlight->setVisible(false);
+	// highlight->setBlendFunc({ GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA });
 	highlight->setID(fmt::format("highlight-sprite-{}"_spr, m_fields->m_highlights.size() + 1));
 	this->addChild(highlight, 10);
 
@@ -1064,6 +1117,7 @@ cocos2d::extension::CCScale9Sprite* BetterTextInputNode::appendHighlightNode()
  */
 void BetterTextInputNode::removeLastHighlightNode()
 {
+	m_fields->m_highlights.back()->clear();
 	m_fields->m_highlights.back()->removeFromParent();
 	m_fields->m_highlights.pop_back();
 }

@@ -1,8 +1,13 @@
 #pragma once
 
-#include <Geode/modify/CCTextInputNode.hpp>
+#include <numbers>
 
-#include "types/CharNode.hpp"
+#include <Geode/modify/CCTextInputNode.hpp>
+#include <Geode/cocos/draw_nodes/CCDrawNode.h>
+
+#include "utils.hpp"
+
+#include "types/CharNodeInfo.hpp"
 #include "types/HighlightedString.hpp"
 #include "types/InputNodeTextAreaInfo.hpp"
 
@@ -21,9 +26,17 @@ public:
 
 		HighlightedString m_highlighted;
 		bool m_is_adding_to_highlight = false;
-		std::vector<cocos2d::extension::CCScale9Sprite*> m_highlights;
+		std::vector<cocos2d::CCDrawNode*> m_highlights;
+
+		bool m_is_blinking = false;
+		float m_time_since_last_input = .0f;
 
 		bool m_use_update_blink_pos = false;
+	};
+
+	enum ACTION_TAG : uint8_t
+	{
+		CURSOR_BLINK
 	};
 
 	bool init(float p0, float p1, char const* p2, char const* p3, int p4, char const* p5);
@@ -35,8 +48,9 @@ public:
 
 	void setString(gd::string str);
 
-	// bug fixes
-	void textAreaCursorFix(std::size_t pos);
+
+	void updateCursorBlink(float dt);
+	void updateCursorPos(std::size_t pos);
 
 	// key events
 	void onRightArrowKey(bool isCtrl, bool isShift);
@@ -66,8 +80,8 @@ public:
 	void insertStrAtPos(int pos, std::size_t len, const std::string& str);
 	void deletePos(int pos, bool isDel);
 
-	CharNode getCharNodePosInfo(std::size_t pos, bool isLeftAnchored);
-	CharNode getCharNodePosInfoAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored);
+	CharNodeInfo getCharNodePosInfo(std::size_t pos, bool isLeftAnchored);
+	CharNodeInfo getCharNodePosInfoAtLine(std::size_t pos, std::size_t line, bool isLeftAnchored);
 
 	InputNodeTextAreaInfo getTextLabelInfoFromPos(std::size_t pos);
 
@@ -79,11 +93,26 @@ public:
 
 	void deselectInput();
 
-	cocos2d::extension::CCScale9Sprite* appendHighlightNode();
+	cocos2d::CCDrawNode* appendHighlightNode();
 	void removeLastHighlightNode();
 
 	[[nodiscard]] int getAndSetNextPos();
 	[[nodiscard]] int getAndSetPreviousPos();
+
+
+	cocos2d::ccColor4F getHighlightColor()
+	{
+		cocos2d::ccColor4F col = cocos2d::ccc4FFromccc3B(
+			BI::geode::get<cocos2d::ccColor3B>("highlight-color")
+		);
+		col.a = .5f;
+		return col;
+	}
+
+	static constexpr float getHighlightOffset(float scale)
+	{
+		return 5.f * std::pow(scale, std::numbers::e_v<float>);
+	}
 };
 
 

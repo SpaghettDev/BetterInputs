@@ -4,7 +4,7 @@
         "win": "2.2074",
         "mac": "2.2074"
     },
-    "version": "v4.2.0-beta.13",
+    "version": "v4.2.0-beta.20",
     "id": "spaghettdev.betterinputs",
     "name": "BetterInputs",
     "developer": "SpaghettDev",
@@ -20,16 +20,28 @@
     },
     "settings": {
         "allow-any-character": {
-            "type": "bool",
-            "default": true,
             "name": "Allow any character",
-            "description": "Allows inputting any character (even ones not allowed) into input nodes."
+            "description": "Allows inputting any character (even ones not allowed) into input nodes.",
+            "type": "bool",
+            "default": true
         },
         "bypass-length-check": {
+            "name": "Bypass Length Check",
+            "description": "Allows inserting however many characters into an input node.",
             "type": "bool",
-            "default": true,
-            "name": "Bypass length check",
-            "description": "Allows inserting however many characters into an input node."
+            "default": true
+        },
+        "alternate-cursor-blink": {
+            "name": "Alternate Cursor blink",
+            "description": "Alternate cursor blinking animation, similar to VSCode.",
+            "type": "bool",
+            "default": false
+        },
+        "highlight-color": {
+            "name": "Selection Color",
+            "description": "Sets the color of the highlight.",
+            "type": "color",
+            "default": "#5078FF"
         }
     }
 }
