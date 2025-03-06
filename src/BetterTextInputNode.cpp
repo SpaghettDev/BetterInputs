@@ -614,6 +614,12 @@ void BetterTextInputNode::highlightFromToPos(int from, int to)
 		bool hasHighlightedStart = false;
 		bool hasHighlightedEnd = false;
 
+		const auto& textLabelInfo = getTextLabelInfoFromPos(
+			m_fields->m_highlighted.isHighlighting()
+				? m_fields->m_highlighted.getToPos<false>()
+				: m_fields->m_pos
+		);
+
 		for (std::size_t line = 0; auto* label : textAreaLabels)
 		{
 			const std::size_t labelStrLen = std::string_view{ label->getString() }.length() - 1;
@@ -624,73 +630,57 @@ void BetterTextInputNode::highlightFromToPos(int from, int to)
 			if (hasHighlightedStart && hasHighlightedEnd)
 				continue; // dont break in case other highlights are visible
 
-			if (!hasHighlightedStart)
+			if (!hasHighlightedStart && targetFrom <= labelStrLen)
 			{
-				if (targetFrom <= labelStrLen)
+				hasHighlightedStart = true;
+
+				CharNodeInfo fromCharInfo = getCharNodePosInfoAtLine(targetFrom, line, true);
+				CharNodeInfo toCharInfo;
+
+				// in case we're highlighting from and to the next label/the same label
+				if (targetTo > labelStrLen)
 				{
-					const auto& textLabelInfo = getTextLabelInfoFromPos(
-						m_fields->m_highlighted.isHighlighting()
-							? m_fields->m_highlighted.getToPos<false>()
-							: m_fields->m_pos
-					);
-					hasHighlightedStart = true;
+					toCharInfo = getCharNodePosInfoAtLine(labelStrLen, line, false);
 
-					CharNodeInfo fromCharInfo = getCharNodePosInfoAtLine(targetFrom, line, true);
-					CharNodeInfo toCharInfo;
-
-					// in case we're highlighting from and to the next label/the same label
-					if (targetTo > labelStrLen)
-					{
-						toCharInfo = getCharNodePosInfoAtLine(labelStrLen, line, false);
-
-						if (targetTo == labelStrLen + 1)
-							hasHighlightedEnd = true;
-					}
-					else
-					{
-						// if selection ends at the end of the current label,
-						// use the right of last character. else set to left of target character
-						if (textLabelInfo.numCharsFromLabelStart == std::string_view{ textLabelInfo.label->getString() }.length() - 1)
-							toCharInfo = getCharNodePosInfoAtLine(
-								textLabelInfo.numCharsFromLabelStart,
-								textLabelInfo.line,
-								false
-							);
-						else
-							toCharInfo = getCharNodePosInfoAtLine(
-								targetTo,
-								line,
-								true
-							);
-
+					if (targetTo == labelStrLen + 1)
 						hasHighlightedEnd = true;
-					}
-
-					float topY = fromCharInfo.position.y - 3.f
-						+ fromCharInfo.sprite->getScaledContentHeight() / 2.f;
-					float bottomY = toCharInfo.position.y - 3.f
-						- toCharInfo.sprite->getScaledContentHeight() / 2.f;
-
-					CCRect rect = createRectFromPoints(
-						{ fromCharInfo.position.x, bottomY },
-						{ toCharInfo.position.x, bottomY },
-						{ toCharInfo.position.x, topY },
-						{ fromCharInfo.position.x, topY }
-					);
-					// we can get away by just lying about the height
-					rect.size.height = label->getScaledContentHeight();
-
-					highlight->drawRect(rect, highlightColor, .0f, highlightColor);
 				}
+				else
+				{
+					toCharInfo = getCharNodePosInfoAtLine(
+						targetTo,
+						line,
+						true
+					);
+
+					hasHighlightedEnd = true;
+				}
+
+				float topY = fromCharInfo.position.y - 3.f
+					+ fromCharInfo.sprite->getScaledContentHeight() / 2.f;
+				float bottomY = toCharInfo.position.y - 3.f
+					- toCharInfo.sprite->getScaledContentHeight() / 2.f;
+
+				CCRect rect = createRectFromPoints(
+					{ fromCharInfo.position.x, bottomY },
+					{ toCharInfo.position.x, bottomY },
+					{ toCharInfo.position.x, topY },
+					{ fromCharInfo.position.x, topY }
+				);
+				// we can get away by just lying about the height
+				rect.size.height = label->getScaledContentHeight();
+
+				highlight->drawRect(rect, highlightColor, .0f, highlightColor);
 			}
-			else if (!hasHighlightedEnd)
+
+			if (hasHighlightedStart && !hasHighlightedEnd)
 			{
 				CharNodeInfo fromCharInfo = getCharNodePosInfoAtLine(0, line, true);
 				CharNodeInfo toCharInfo;
 
 				// again, check if we're highlighting to the current label or afterwards
 				if (targetTo > labelStrLen)
-					toCharInfo = getCharNodePosInfoAtLine(labelStrLen, line, to != -1);
+					toCharInfo = getCharNodePosInfoAtLine(labelStrLen, line, false);
 				else
 				{
 					toCharInfo = getCharNodePosInfoAtLine(targetTo, line, to != -1);
