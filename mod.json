@@ -37,6 +37,12 @@
             "type": "bool",
             "default": false
         },
+        "alternate-deselect": {
+            "name": "Alternate Deselect",
+            "description": "Makes the ESC key functions just like in the base game, doesn't deselect the input and instead just exits/closes the layer.",
+            "type": "bool",
+            "default": false
+        },
         "highlight-color": {
             "name": "Selection Color",
             "description": "Sets the color of the highlight.",

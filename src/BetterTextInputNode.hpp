@@ -39,6 +39,7 @@ public:
 		CURSOR_BLINK
 	};
 
+
 	bool init(float p0, float p1, char const* p2, char const* p3, int p4, char const* p5);
 
 	virtual bool onTextFieldAttachWithIME(cocos2d::CCTextFieldTTF* tField) override;
@@ -53,8 +54,11 @@ public:
 	void updateCursorPos(std::size_t pos);
 
 	// key events
+
 	void onRightArrowKey(bool isCtrl, bool isShift);
 	void onLeftArrowKey(bool isCtrl, bool isShift);
+	void onUpArrowKey(bool isShift);
+	void onDownArrowKey(bool isShift);
 	void onHomeKey(bool isShift);
 	void onEndKey(bool isShift);
 	void onDelete(bool isCtrl, bool isDel);
@@ -63,9 +67,11 @@ public:
 	void onCut();
 
 	// other events
+
 	void onStringEmpty();
 
 	// getters and setters
+
 	void useUpdateBlinkPos(bool toggle);
 	void showTextOrPlaceholder(bool toggle);
 
@@ -75,6 +81,7 @@ public:
 
 
 	// rewritten input stuff, helpers and highlighting
+
 	void highlightFromToPos(int from, int to);
 	void insertCharAtPos(int pos, char character);
 	void insertStrAtPos(int pos, std::size_t len, const std::string& str);
@@ -85,11 +92,14 @@ public:
 
 	InputNodeTextAreaInfo getTextLabelInfoFromPos(std::size_t pos);
 
+	std::size_t getClosestCharIdxToXPos(float posX);
+	std::size_t getClosestCharIdxToXPos(float posX, cocos2d::CCLabelBMFont* targetLabel);
+
 	void setAndUpdateString(const std::string& str);
 
 	void updateBlinkLabelToCharForced(int pos);
 
-	void clearHighlight();
+	void clearHighlight(bool clearStr = true);
 
 	void deselectInput();
 
@@ -99,6 +109,13 @@ public:
 	[[nodiscard]] int getAndSetNextPos();
 	[[nodiscard]] int getAndSetPreviousPos();
 
+
+	inline void whileAddingToHighlight(std::function<void()>&& f)
+	{
+		m_fields->m_is_adding_to_highlight = true;
+		f();
+		m_fields->m_is_adding_to_highlight = false;
+	}
 
 	cocos2d::ccColor4F getHighlightColor()
 	{
@@ -116,4 +133,5 @@ public:
 };
 
 
+// this works because only one input node can ever be selected
 inline BetterTextInputNode* g_selectedInput = nullptr;

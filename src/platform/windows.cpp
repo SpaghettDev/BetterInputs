@@ -31,13 +31,13 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 				switch (key)
 				{
 					case GLFW_KEY_ESCAPE:
-						g_selectedInput->deselectInput();
+						if (!BI::geode::get<bool>("alternate-deselect"))
+							return g_selectedInput->deselectInput();
 						break;
 
 					case GLFW_KEY_BACKSPACE:
 					case GLFW_KEY_DELETE:
-						g_selectedInput->onDelete(false, key == GLFW_KEY_DELETE);
-						break;
+						return g_selectedInput->onDelete(false, key == GLFW_KEY_DELETE);
 
 					default:
 						break;
@@ -46,19 +46,27 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 
 			switch (key)
 			{
+				case GLFW_KEY_UP:
+					return g_selectedInput->onUpArrowKey(
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+					);
+
+				case GLFW_KEY_DOWN:
+					return g_selectedInput->onDownArrowKey(
+						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
+					);
+
 				case GLFW_KEY_RIGHT:
-					g_selectedInput->onRightArrowKey(
+					return g_selectedInput->onRightArrowKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
-					break;
 
 				case GLFW_KEY_LEFT:
-					g_selectedInput->onLeftArrowKey(
+					return g_selectedInput->onLeftArrowKey(
 						BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL),
 						BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 					);
-					break;
 
 				default:
 					break;
@@ -74,26 +82,21 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 			switch (key)
 			{
 				case GLFW_KEY_A:
-					g_selectedInput->highlightFromToPos(0, -1);
-					break;
+					return g_selectedInput->highlightFromToPos(0, -1);
 
 				case GLFW_KEY_INSERT:
 				case GLFW_KEY_C:
-					g_selectedInput->onCopy();
-					break;
+					return g_selectedInput->onCopy();
 
 				case GLFW_KEY_V:
-					g_selectedInput->onPaste();
-					break;
+					return g_selectedInput->onPaste();
 
 				case GLFW_KEY_X:
-					g_selectedInput->onCut();
-					break;
+					return g_selectedInput->onCut();
 
 				case GLFW_KEY_BACKSPACE:
 				case GLFW_KEY_DELETE:
-					g_selectedInput->onDelete(true, key == GLFW_KEY_DELETE);
-					break;
+					return g_selectedInput->onDelete(true, key == GLFW_KEY_DELETE);
 
 				default:
 					break;
@@ -107,16 +110,14 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 				switch (key)
 				{
 					case GLFW_KEY_HOME:
-						g_selectedInput->onHomeKey(
+						return g_selectedInput->onHomeKey(
 							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 						);
-						break;
 
 					case GLFW_KEY_END:
-						g_selectedInput->onEndKey(
+						return g_selectedInput->onEndKey(
 							BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT)
 						);
-						break;
 
 					default:
 						break;
@@ -130,21 +131,14 @@ struct BetterCCEGLView : Modify<BetterCCEGLView, CCEGLView>
 				switch (key)
 				{
 					case GLFW_KEY_INSERT:
-						g_selectedInput->onPaste();
-						break;
+						return g_selectedInput->onPaste();
 
 					default:
 						break;
 				}
 			}
 
-			if (
-				!BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT) &&
-				!BI::platform::keyDown(BI::PlatformKey::LEFT_CONTROL) &&
-				key == GLFW_KEY_ENTER
-			) {
-				return CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
-			}
+			CCEGLView::onGLFWKeyCallback(window, key, scancode, action, mods);
 		}
 	}
 

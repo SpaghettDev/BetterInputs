@@ -58,12 +58,12 @@ namespace BI
 	}
 }
 
-#define HOOK_OBJC_METHOD(klass, type, cleanFuncName, funcName) \
+#define OBJC_SWIZZLE(klass, type, cleanFuncName, funcName) \
 	do { \
 		auto cleanFuncName ## Method = class_getInstanceMethod(objc_getClass(#klass), @selector(funcName)); \
 		cleanFuncName ## OIMP = reinterpret_cast<type>(method_getImplementation(cleanFuncName ## Method)); \
 		method_setImplementation(cleanFuncName ## Method, reinterpret_cast<IMP>(&cleanFuncName)); \
-		geode::log::debug("Hooked Objective C Method '" #klass " " #funcName "'"); \
+		geode::log::debug("Swizzled Objective C Method '" #klass " " #funcName "'"); \
 	} while(0)
 
 using key_event_t = void(*)(EAGLView*, SEL, NSEvent*);
@@ -82,7 +82,9 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 		switch ([event keyCode])
 		{
 			case kVK_Escape:
-				return g_selectedInput->deselectInput();
+				if (!BI::geode::get<bool>("alternate-deselect"))
+					return g_selectedInput->deselectInput();
+				break;
 
 			case kVK_Delete:
 			case kVK_ForwardDelete:
@@ -95,6 +97,16 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 
 	switch ([event keyCode])
 	{
+		case kVk_UpArrow:
+			return g_selectedInput->onUpArrowKey(
+				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+			);
+
+		case kVk_DownArrow:
+			return g_selectedInput->onUpArrowKey(
+				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
+			);
+
 		case kVK_RightArrow:
 			return g_selectedInput->onRightArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_ALT, event),
@@ -236,9 +248,9 @@ void mouseUpExec(EAGLView* self, SEL sel, NSEvent* event)
 // https://github.com/qimiko/click-on-steps/blob/d8a87e93b5407e5f2113a9715363a5255724c901/src/macos.mm#L101
 $on_mod(Loaded)
 {
-	HOOK_OBJC_METHOD(EAGLView, key_event_t, keyDownExec, keyDownExec:);
-	HOOK_OBJC_METHOD(EAGLView, key_event_t, keyUpExec, keyUpExec:);
+	OBJC_SWIZZLE(EAGLView, key_event_t, keyDownExec, keyDownExec:);
+	OBJC_SWIZZLE(EAGLView, key_event_t, keyUpExec, keyUpExec:);
 
-	HOOK_OBJC_METHOD(EAGLView, key_event_t, mouseDownExec, mouseDownExec:);
-	HOOK_OBJC_METHOD(EAGLView, key_event_t, mouseUpExec, mouseUpExec:);
+	OBJC_SWIZZLE(EAGLView, key_event_t, mouseDownExec, mouseDownExec:);
+	OBJC_SWIZZLE(EAGLView, key_event_t, mouseUpExec, mouseUpExec:);
 }
