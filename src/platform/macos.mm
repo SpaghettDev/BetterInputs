@@ -97,12 +97,12 @@ void keyDownExec(EAGLView* self, SEL sel, NSEvent* event)
 
 	switch ([event keyCode])
 	{
-		case kVk_UpArrow:
+		case kVK_UpArrow:
 			return g_selectedInput->onUpArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
 
-		case kVk_DownArrow:
+		case kVK_DownArrow:
 			return g_selectedInput->onUpArrowKey(
 				BI::platform::keyDown(BI::PlatformKey::LEFT_SHIFT, event)
 			);
